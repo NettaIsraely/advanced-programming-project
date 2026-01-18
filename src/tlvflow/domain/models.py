@@ -1,5 +1,5 @@
-from abc import ABC, abstractmethod
-from typing import Optional, List
+from abc import ABC
+
 from tlvflow.domain.enums import VehicleStatus
 
 
@@ -20,7 +20,12 @@ class Vehicle(ABC):
     # Protected attribute for tracking maintenance
     _last_maintenance_ride_count: int
     
-    def __init__(self, vehicle_id: str, frame_number: str, status: VehicleStatus = VehicleStatus.AVAILABLE):
+    def __init__(
+        self,
+        vehicle_id: str,
+        frame_number: str,
+        status: VehicleStatus = VehicleStatus.AVAILABLE,
+    ):
         """
         Initialize a Vehicle instance.
         
@@ -36,7 +41,7 @@ class Vehicle(ABC):
         self.has_helmet = False
         self._last_maintenance_ride_count = 0
     
-    def check_maintenance_needed(self, reports: Optional[List] = None) -> bool:
+    def check_maintenance_needed(self, reports: list | None = None) -> bool:
         """
         Check if the vehicle needs maintenance.
         
@@ -57,9 +62,13 @@ class Vehicle(ABC):
         
         # Check if there are any reports for this vehicle
         if reports:
-            # Assuming VehicleReport has a vehicle_id attribute that matches self._vehicle_id
+            # Assuming VehicleReport has a vehicle_id attribute
+            # that matches self._vehicle_id
             for report in reports:
-                if hasattr(report, '_vehicle_id') and report._vehicle_id == self._vehicle_id:
+                if (
+                    hasattr(report, "_vehicle_id")
+                    and report._vehicle_id == self._vehicle_id
+                ):
                     return True
         
         return False
@@ -84,8 +93,13 @@ class Bike(Vehicle):
     
     has_child_seat: bool
     
-    def __init__(self, vehicle_id: str, frame_number: str, has_child_seat: bool = False, 
-                 status: VehicleStatus = VehicleStatus.AVAILABLE):
+    def __init__(
+        self,
+        vehicle_id: str,
+        frame_number: str,
+        has_child_seat: bool = False,
+        status: VehicleStatus = VehicleStatus.AVAILABLE,
+    ):
         """
         Initialize a Bike instance.
         
@@ -98,7 +112,7 @@ class Bike(Vehicle):
         super().__init__(vehicle_id, frame_number, status)
         self.has_child_seat = has_child_seat
     
-    def check_maintenance_needed(self, reports: Optional[List] = None) -> bool:
+    def check_maintenance_needed(self, reports: list | None = None) -> bool:
         """
         Check if the bike needs maintenance.
         
@@ -106,7 +120,8 @@ class Bike(Vehicle):
             reports: Optional list of VehicleReport instances to check for user reports
         
         Returns:
-            bool: True if maintenance is needed (10+ rides since last maintenance or user reported), False otherwise
+            bool: True if maintenance is needed (10+ rides since last
+                maintenance or user reported), False otherwise
         """
         return super().check_maintenance_needed(reports)
 
@@ -132,7 +147,7 @@ class EBike(Vehicle):
             raise ValueError("Battery level must be between 0 and 100")
         self.battery_level = battery_level
     
-    def check_maintenance_needed(self, reports: Optional[List] = None) -> bool:
+    def check_maintenance_needed(self, reports: list | None = None) -> bool:
         """
         Check if the e-bike needs maintenance.
         
@@ -140,7 +155,8 @@ class EBike(Vehicle):
             reports: Optional list of VehicleReport instances to check for user reports
         
         Returns:
-            bool: True if maintenance is needed (10+ rides since last maintenance, user reported, or low battery), False otherwise
+            bool: True if maintenance is needed (10+ rides since last
+                maintenance, user reported, or low battery), False otherwise
         """
         # Check base maintenance conditions (rides or user report)
         base_maintenance = super().check_maintenance_needed(reports)
@@ -169,7 +185,7 @@ class Scooter(Vehicle):
             raise ValueError("Battery level must be between 0 and 100")
         self.battery_level = battery_level
     
-    def check_maintenance_needed(self, reports: Optional[List] = None) -> bool:
+    def check_maintenance_needed(self, reports: list | None = None) -> bool:
         """
         Check if the scooter needs maintenance.
         
@@ -177,7 +193,8 @@ class Scooter(Vehicle):
             reports: Optional list of VehicleReport instances to check for user reports
         
         Returns:
-            bool: True if maintenance is needed (10+ rides since last maintenance, user reported, or low battery), False otherwise
+            bool: True if maintenance is needed (10+ rides since last
+                maintenance, user reported, or low battery), False otherwise
         """
         # Check base maintenance conditions (rides or user report)
         base_maintenance = super().check_maintenance_needed(reports)
