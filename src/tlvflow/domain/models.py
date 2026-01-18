@@ -1,4 +1,5 @@
 from abc import ABC
+from typing import Any
 
 from tlvflow.domain.enums import VehicleStatus
 
@@ -41,7 +42,7 @@ class Vehicle(ABC):
         self.has_helmet = False
         self._last_maintenance_ride_count = 0
 
-    def check_maintenance_needed(self, reports: list | None = None) -> bool:
+    def check_maintenance_needed(self, reports: list[Any] | None = None) -> bool:
         """
         Check if the vehicle needs maintenance.
 
@@ -113,7 +114,7 @@ class Bike(Vehicle):
         super().__init__(vehicle_id, frame_number, status)
         self.has_child_seat = has_child_seat
 
-    def check_maintenance_needed(self, reports: list | None = None) -> bool:
+    def check_maintenance_needed(self, reports: list[Any] | None = None) -> bool:
         """
         Check if the bike needs maintenance.
 
@@ -153,7 +154,7 @@ class EBike(Vehicle):
             raise ValueError("Battery level must be between 0 and 100")
         self.battery_level = battery_level
 
-    def check_maintenance_needed(self, reports: list | None = None) -> bool:
+    def check_maintenance_needed(self, reports: list[Any] | None = None) -> bool:
         """
         Check if the e-bike needs maintenance.
 
@@ -196,7 +197,7 @@ class Scooter(Vehicle):
             raise ValueError("Battery level must be between 0 and 100")
         self.battery_level = battery_level
 
-    def check_maintenance_needed(self, reports: list | None = None) -> bool:
+    def check_maintenance_needed(self, reports: list[Any] | None = None) -> bool:
         """
         Check if the scooter needs maintenance.
 
