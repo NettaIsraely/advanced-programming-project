@@ -66,6 +66,8 @@ class User:
         payment_method_id: str,
         *,
         user_id: str | None = None,
+        license_number: str | None = None,
+        license_expiry: datetime | None = None,
     ) -> "User":
         """Factory method used by the /register flow.
 
@@ -280,10 +282,14 @@ class ProUser(User):
         password: str,
         payment_method_id: str,
         *,
-        license_number: str,
-        license_expiry: datetime,
         user_id: str | None = None,
+        license_number: str | None = None,
+        license_expiry: datetime | None = None,
     ) -> "ProUser":
+        if not license_number:
+            raise ValueError("license_number is required for ProUser")
+        if license_expiry is None:
+            raise ValueError("license_expiry is required for ProUser")
         uid = user_id or uuid4().hex
         pwd_hash = cls._hash_password(password)
         return cls(
