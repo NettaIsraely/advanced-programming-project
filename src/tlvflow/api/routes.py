@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/health")
+@router.get("/health")  # type: ignore[misc]
 async def health() -> dict[str, str]:
     """Health check endpoint."""
     logger.debug("Health check requested")
