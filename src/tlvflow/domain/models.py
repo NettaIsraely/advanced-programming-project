@@ -544,7 +544,6 @@ class Scooter(Vehicle):
         # Also check battery level
         return base_maintenance or self.battery_level < 20
 
-
     class Station:
         """represents a physical scooter station"""
 
@@ -626,6 +625,7 @@ class Scooter(Vehicle):
                 raise ValueError("available_slots cannot exceed capacity")
             return available_slots
             # validation
+
         def _validate_station_id(self, station_id: int) -> int:
             if not isinstance(station_id, int) or station_id < 0:
                 raise ValueError("station_id must be a non-negative integer")
