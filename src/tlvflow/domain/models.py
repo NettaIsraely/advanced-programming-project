@@ -544,6 +544,7 @@ class Scooter(Vehicle):
         # Also check battery level
         return base_maintenance or self.battery_level < 20
 
+
 class Station:
     """represents a physical scooter station"""
 
@@ -556,15 +557,15 @@ class Station:
     _vehicles: list[Vehicle]
 
     def __init__(
-            self, 
-            station_id: int,
-            name: str,
-            latitude: float,
-            longitude: float,
-            capacity: int,
-            available_slots: int,
+        self,
+        station_id: int,
+        name: str,
+        latitude: float,
+        longitude: float,
+        capacity: int,
+        available_slots: int,
     ) -> None:
-        
+
         self._station_id = self._validate_station_id(station_id)
         self._name = self._validate_name(name)
         self._latitude = self._validate_latitude(latitude)
@@ -572,24 +573,24 @@ class Station:
         self._capacity = self._validate_capacity(capacity)
         self._available_slots = self._validate_available_slots(available_slots)
         self._vehicles = []
-    
-    #properties
+
+    # properties
     @property
     def station_id(self) -> int:
         return self._station_id
-    
+
     @property
     def name(self) -> str:
         return self._name
-    
+
     @property
     def latitude(self) -> float:
         return self._latitude
-    
+
     @property
-    def longitude(self) -> float: 
+    def longitude(self) -> float:
         return self._longitude
-    
+
     @property
     def capacity(self) -> int:
         return self._capacity
@@ -597,27 +598,27 @@ class Station:
     @property
     def available_slots(self) -> int:
         return self._available_slots
-    
+
     @property
     def is_full(self) -> bool:
         return self._available_slots == 0
-    
-    @property 
+
+    @property
     def is_empty(self) -> bool:
         return self._available_slots == self._capacity
-    
-    #domain actions
+
+    # domain actions
     def occupy_slot(self) -> None:
         if self.is_full:
             raise ValueError("station is full")
         self._available_slots -= 1
-    
+
     def free_slot(self) -> None:
         if self.is_empty:
             raise ValueError("station is empty")
         self._available_slots += 1
-    
-    #validation
+
+    # validation
     def _validate_available_slots(self, available_slots: int) -> int:
         if available_slots < 0:
             raise ValueError("available_slots cannot be negative")
