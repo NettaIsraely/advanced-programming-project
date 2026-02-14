@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-from tlvflow.domain.enums import VehicleStatus
+from tlvflow.domain.enums import RideStatus, VehicleStatus
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -543,3 +543,149 @@ class Scooter(Vehicle):
         base_maintenance = super().check_maintenance_needed(reports)
         # Also check battery level
         return base_maintenance or self.battery_level < 20
+
+
+class Ride:
+    """A ride: a user's use of a vehicle from start to end."""
+
+    # Protected attributes (#)
+    _ride_id: str
+    _user_id: str
+    _vehicle_id: str
+
+    # Private attributes (-)
+    __start_time: datetime
+    __end_time: datetime | None
+    __start_latitude: float
+    __start_longitude: float
+    __end_latitude: float
+    __end_longitude: float
+    __distance: float
+    __fee: float
+    __status: RideStatus
+
+    def __init__(
+        self,
+        ride_id: str,
+        user_id: str,
+        vehicle_id: str,
+        start_time: datetime,
+        *,
+        end_time: datetime | None = None,
+        start_latitude: float = 0.0,
+        start_longitude: float = 0.0,
+        end_latitude: float = 0.0,
+        end_longitude: float = 0.0,
+        distance: float = 0.0,
+        fee: float = 0.0,
+    ) -> None:
+        """
+        Initialize a Ride instance.
+
+        Args:
+            ride_id: Unique identifier for the ride
+            user_id: ID of the user taking the ride
+            vehicle_id: ID of the vehicle used
+            start_time: When the ride started (UTC)
+            end_time: When the ride ended (UTC), or None if in progress
+            start_latitude: Start location latitude
+            start_longitude: Start location longitude
+            end_latitude: End location latitude
+            end_longitude: End location longitude
+            distance: Distance travelled
+            fee: Ride fee
+        """
+        self._ride_id = self._validate_ride_id(ride_id)
+        self._user_id = self._validate_user_id(user_id)
+        self._vehicle_id = self._validate_vehicle_id(vehicle_id)
+        self.__start_time = self._validate_datetime(start_time, "start_time")
+        self.__end_time = (
+            self._validate_datetime(end_time, "end_time")
+            if end_time is not None
+            else None
+        )
+        self.__start_latitude = self._validate_float(start_latitude, "start_latitude")
+        self.__start_longitude = self._validate_float(
+            start_longitude, "start_longitude"
+        )
+        self.__end_latitude = self._validate_float(end_latitude, "end_latitude")
+        self.__end_longitude = self._validate_float(end_longitude, "end_longitude")
+        self.__distance = self._validate_float(distance, "distance")
+        self.__fee = self._validate_float(fee, "fee")
+        self.__status = (
+            RideStatus.COMPLETED
+            if self.__end_time is not None
+            else RideStatus.IN_PROGRESS
+        )
+
+    def calculate_fee(self, duration: float, distance: float) -> float:
+        """Calculate the ride fee from duration and distance. Returns the fee amount."""
+        # Placeholder: override or extend for real pricing logic
+        self.__distance = distance
+        self.__fee = duration * 0.5 + distance * 0.2  # example formula
+        return self.__fee
+
+    def _process_payment(self) -> None:
+        """Process payment for the ride (protected)."""
+        # Placeholder: integrate with payment system
+        pass
+
+    def _log_ride(self) -> None:
+        """Log the ride for history/analytics (protected)."""
+        # Placeholder: persist or emit ride record
+        pass
+
+    def __handle_tracking_error(self) -> None:
+        """Handle tracking/location error (private)."""
+        # Placeholder: error handling for GPS/tracking
+        pass
+
+    def end(self, at: datetime | None = None) -> None:
+        """Mark the ride as completed at the given time (UTC)."""
+        if self.__end_time is not None:
+            raise ValueError("Ride is already ended")
+        now = at or datetime.now(UTC)
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=UTC)
+        if now < self.__start_time:
+            raise ValueError("end_time cannot be before start_time")
+        self.__end_time = now
+        self.__status = RideStatus.COMPLETED
+
+    def status(self) -> RideStatus:
+        """Return the current status of the ride."""
+        return self.__status
+
+    def is_active(self) -> bool:
+        """Return True if the ride is in progress."""
+        return self.__end_time is None
+
+    @staticmethod
+    def _validate_ride_id(ride_id: str) -> str:
+        if not isinstance(ride_id, str) or not ride_id.strip():
+            raise ValueError("ride_id must be a non-empty string")
+        return ride_id.strip()
+
+    @staticmethod
+    def _validate_user_id(user_id: str) -> str:
+        if not isinstance(user_id, str) or not user_id.strip():
+            raise ValueError("user_id must be a non-empty string")
+        return user_id.strip()
+
+    @staticmethod
+    def _validate_vehicle_id(vehicle_id: str) -> str:
+        if not isinstance(vehicle_id, str) or not vehicle_id.strip():
+            raise ValueError("vehicle_id must be a non-empty string")
+        return vehicle_id.strip()
+
+    @staticmethod
+    def _validate_datetime(value: datetime, name: str) -> datetime:
+        if not isinstance(value, datetime):
+            raise ValueError(f"{name} must be a datetime")
+        return value
+
+    @staticmethod
+    def _validate_float(value: float, name: str) -> float:
+        if not isinstance(value, int | float):
+            raise ValueError(f"{name} must be a number")
+        return float(value)
