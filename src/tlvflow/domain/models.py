@@ -30,6 +30,7 @@ class User:
     # Ride tracking
     _ride_history: list[Any]
     _current_ride: Any | None
+    _current_vehicle_id: str | None
 
     # Password hashing parameters
     _PWD_ALGO = "pbkdf2_sha256"
@@ -53,6 +54,7 @@ class User:
 
         self._ride_history = []
         self._current_ride = None
+        self._current_vehicle_id = None
 
     # ----------------------------
     # Construction / authentication
@@ -90,48 +92,57 @@ class User:
     # ----------------------------
     # Ride-related domain behavior
     # ----------------------------
-    def start_ride(self, ride: Any) -> None:
-        """Mark a ride as active for this user.
+    def start_ride(self, vehicle_id: str) -> None:
+        """Mark that the user started a ride with the given vehicle.
 
         Enforces the rule: a user cannot be on more than one active ride.
+        The service layer should attach the Ride object via set_current_ride()
+        after creating it.
         """
-        if self._current_ride is not None:
+        if self._current_ride is not None or self._current_vehicle_id is not None:
             raise ValueError("User already has an active ride")
+        if not isinstance(vehicle_id, str) or not vehicle_id.strip():
+            raise ValueError("vehicle_id must be a non-empty string")
+        self._current_vehicle_id = vehicle_id.strip()
+
+    def set_current_ride(self, ride: Any) -> None:
+        """Attach the current ride object (called by service layer after start_ride)."""
         self._current_ride = ride
 
-    def end_ride(self, ride: Any) -> None:
-        """Finalize an active ride and append it to history."""
-        if self._current_ride is None:
+    def end_ride(self, station_id: str) -> None:
+        """Finalize the current active ride and append it to history."""
+        if self._current_ride is None and self._current_vehicle_id is None:
             raise ValueError("User has no active ride to end")
-        if ride is not self._current_ride:
-            raise ValueError("Ride mismatch: cannot end a different ride")
-        self._ride_history.append(ride)
+        if not isinstance(station_id, str) or not station_id.strip():
+            raise ValueError("station_id must be a non-empty string")
+        if self._current_ride is not None:
+            self._ride_history.append(self._current_ride)
         self._current_ride = None
+        self._current_vehicle_id = None
 
     def view_ride_history(self) -> tuple[Any, ...]:
         """Return an immutable snapshot of ride history."""
         return tuple(self._ride_history)
 
-    def report_vehicle_issue(
+    def report_vehicle(
         self,
-        *,
-        ride_id: str,
         vehicle_id: str,
-        image_url: str | None = None,
-        description: str = "",
+        image: str,
+        description: str,
     ) -> dict[str, str]:
-        """Create a report payload for the service layer."""
-        if not ride_id:
-            raise ValueError("ride_id is required")
-        if not vehicle_id:
-            raise ValueError("vehicle_id is required")
-
-        payload: dict[str, str] = {"ride_id": ride_id, "vehicle_id": vehicle_id}
-        if image_url:
-            payload["image_url"] = image_url
+        """Create a report payload for the given vehicle (diagram: report_vehicle)."""
+        if not isinstance(vehicle_id, str) or not vehicle_id.strip():
+            raise ValueError("vehicle_id must be a non-empty string")
+        payload: dict[str, str] = {"vehicle_id": vehicle_id.strip()}
+        if image:
+            payload["image_url"] = image
         if description:
             payload["description"] = description
         return payload
+
+    def contact_support(self) -> None:
+        """Contact support (diagram). Stub for future implementation."""
+        pass
 
     # ----------------------------
     # Permissions
@@ -332,7 +343,9 @@ class ProUser(User):
 class AmateurUser(User):
     """Default user type (bike-only)."""
 
-    pass
+    def validate_license(self) -> bool:
+        """Amateurs have no license to validate; always True (diagram)."""
+        return True
 
 
 class Vehicle(ABC):
@@ -613,9 +626,7 @@ class Ride:
         self.__distance = self._validate_float(distance, "distance")
         self.__fee = self._validate_float(fee, "fee")
         self.__status = (
-            RideStatus.COMPLETED
-            if self.__end_time is not None
-            else RideStatus.IN_PROGRESS
+            RideStatus.COMPLETED if self.__end_time is not None else RideStatus.ACTIVE
         )
 
     def calculate_fee(self, duration: float, distance: float) -> float:
@@ -652,13 +663,21 @@ class Ride:
         self.__end_time = now
         self.__status = RideStatus.COMPLETED
 
+    def cancel(self) -> None:
+        """Mark the ride as cancelled."""
+        if self.__end_time is not None:
+            raise ValueError("Ride is already ended")
+        if self.__status == RideStatus.CANCELLED:
+            raise ValueError("Ride is already cancelled")
+        self.__status = RideStatus.CANCELLED
+
     def status(self) -> RideStatus:
         """Return the current status of the ride."""
         return self.__status
 
     def is_active(self) -> bool:
-        """Return True if the ride is in progress."""
-        return self.__end_time is None
+        """Return True if the ride is in progress (ACTIVE)."""
+        return self.__status == RideStatus.ACTIVE
 
     @staticmethod
     def _validate_ride_id(ride_id: str) -> str:

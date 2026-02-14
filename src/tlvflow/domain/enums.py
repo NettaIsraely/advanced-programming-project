@@ -13,5 +13,6 @@ class VehicleStatus(Enum):
 class RideStatus(Enum):
     """Enumeration for ride status."""
 
-    IN_PROGRESS = "in_progress"
+    ACTIVE = "active"
     COMPLETED = "completed"
+    CANCELLED = "cancelled"
