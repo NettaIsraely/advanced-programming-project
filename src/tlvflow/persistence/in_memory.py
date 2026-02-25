@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from tlvflow.domain.models import Vehicle
+from tlvflow.domain.vehicles import Vehicle
 from tlvflow.persistence.loaders import load_vehicles_from_csv
 
 
