@@ -544,111 +544,117 @@ class Scooter(Vehicle):
         # Also check battery level
         return base_maintenance or self.battery_level < 20
 
-    class Station:
-        """represents a physical scooter station"""
 
-        _station_id: int
-        _name: str
-        _latitude: float
-        _longitude: float
-        _capacity: int
-        _available_slots: int
-        _vehicles: list[Vehicle]
+class Station:
+    """Represents a physical station that holds vehicles."""
 
-        def __init__(
-            self,
-            station_id: int,
-            name: str,
-            latitude: float,
-            longitude: float,
-            capacity: int,
-            available_slots: int,
-        ) -> None:
+    _station_id: int
+    _name: str
+    _latitude: float
+    _longitude: float
+    _capacity: int
+    _vehicles: list[Vehicle]
 
-            self._station_id = self._validate_station_id(station_id)
-            self._name = self._validate_name(name)
-            self._latitude = self._validate_latitude(latitude)
-            self._longitude = self._validate_longitude(longitude)
-            self._capacity = self._validate_capacity(capacity)
-            self._available_slots = self._validate_available_slots(available_slots)
-            self._vehicles = []
+    def __init__(
+        self,
+        station_id: int,
+        name: str,
+        latitude: float,
+        longitude: float,
+        capacity: int,
+        *,
+        vehicles: list[Vehicle] | None = None,
+    ) -> None:
 
-        # properties
-        @property
-        def station_id(self) -> int:
-            return self._station_id
+        self._station_id = self._validate_station_id(station_id)
+        self._name = self._validate_name(name)
+        self._latitude = self._validate_latitude(latitude)
+        self._longitude = self._validate_longitude(longitude)
+        self._capacity = self._validate_capacity(capacity)
 
-        @property
-        def name(self) -> str:
-            return self._name
+        self._vehicles = list(vehicles) if vehicles else []
+        if len(self._vehicles) > self._capacity:
+            raise ValueError("initial vehicles cannot exceed capacity")
 
-        @property
-        def latitude(self) -> float:
-            return self._latitude
+    # properties
+    @property
+    def station_id(self) -> int:
+        return self._station_id
 
-        @property
-        def longitude(self) -> float:
-            return self._longitude
+    @property
+    def name(self) -> str:
+        return self._name
 
-        @property
-        def capacity(self) -> int:
-            return self._capacity
+    @property
+    def latitude(self) -> float:
+        return self._latitude
 
-        @property
-        def available_slots(self) -> int:
-            return self._available_slots
+    @property
+    def longitude(self) -> float:
+        return self._longitude
 
-        @property
-        def is_full(self) -> bool:
-            return self._available_slots == 0
+    @property
+    def capacity(self) -> int:
+        return self._capacity
 
-        @property
-        def is_empty(self) -> bool:
-            return self._available_slots == self._capacity
+    @property
+    def available_slots(self) -> int:
+        return self._capacity - len(self._vehicles)
 
-        # domain actions
-        def occupy_slot(self) -> None:
-            if self.is_full:
-                raise ValueError("station is full")
-            self._available_slots -= 1
+    @property
+    def is_full(self) -> bool:
+        return self.available_slots == 0
 
-        def free_slot(self) -> None:
-            if self.is_empty:
-                raise ValueError("station is empty")
-            self._available_slots += 1
+    @property
+    def is_empty(self) -> bool:
+        return len(self._vehicles) == 0
 
-        # validation
-        def _validate_available_slots(self, available_slots: int) -> int:
-            if available_slots < 0:
-                raise ValueError("available_slots cannot be negative")
-            if available_slots > self._capacity:
-                raise ValueError("available_slots cannot exceed capacity")
-            return available_slots
-            # validation
+    @property
+    def vehicles(self) -> tuple[Vehicle, ...]:
+        return tuple(self._vehicles)
 
-        def _validate_station_id(self, station_id: int) -> int:
-            if not isinstance(station_id, int) or station_id < 0:
-                raise ValueError("station_id must be a non-negative integer")
-            return station_id
+    # domain actions
+    def dock(self, vehicle: Vehicle) -> None:
+        if self.is_full:
+            raise ValueError("station is full")
+        self._vehicles.append(vehicle)
 
-        def _validate_name(self, name: str) -> str:
-            if not name or not isinstance(name, str):
-                raise ValueError("station name cannot be empty")
-            return name
+    def undock(self, vehicle: Vehicle) -> None:
+        try:
+            self._vehicles.remove(vehicle)
+        except ValueError as exc:
+            raise ValueError("vehicle is not in this station") from exc
 
-        def _validate_latitude(self, latitude: float) -> float:
-            # Tel Aviv is roughly 32.0 - 32.2 lat [cite: 33]
-            if not (-90 <= latitude <= 90):
-                raise ValueError("latitude must be between -90 and 90")
-            return float(latitude)
+    # validation
+    @staticmethod
+    def _validate_station_id(station_id: int) -> int:
+        if not isinstance(station_id, int) or station_id < 0:
+            raise ValueError("station_id must be a non-negative integer")
+        return station_id
 
-        def _validate_longitude(self, longitude: float) -> float:
-            # Tel Aviv is roughly 34.7 - 34.9 lon [cite: 33]
-            if not (-180 <= longitude <= 180):
-                raise ValueError("longitude must be between -180 and 180")
-            return float(longitude)
+    @staticmethod
+    def _validate_name(name: str) -> str:
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("name must be a non-empty string")
+        return name.strip()
 
-        def _validate_capacity(self, capacity: int) -> int:
-            if not isinstance(capacity, int) or capacity <= 0:
-                raise ValueError("capacity must be a positive integer")
-            return capacity
+    @staticmethod
+    def _validate_latitude(latitude: float) -> float:
+        lat = float(latitude)
+        if not (-90.0 <= lat <= 90.0):
+            raise ValueError("latitude must be between -90 and 90")
+        return lat
+
+    @staticmethod
+    def _validate_longitude(longitude: float) -> float:
+        # Tel Aviv is roughly 34.7 - 34.9 lon [cite: 33]
+        lon = float(longitude)
+        if not (-180.0 <= lon <= 180.0):
+            raise ValueError("longitude must be between -180 and 180")
+        return lon
+
+    @staticmethod
+    def _validate_capacity(capacity: int) -> int:
+        if not isinstance(capacity, int) or capacity <= 0:
+            raise ValueError("capacity must be a positive integer")
+        return capacity
