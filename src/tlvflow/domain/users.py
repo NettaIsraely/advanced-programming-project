@@ -4,10 +4,11 @@ import hmac
 import re
 import secrets
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
-from tlvflow.domain.vehicles import Bike, Vehicle
+if TYPE_CHECKING:
+    from tlvflow.domain.vehicles import Vehicle
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -135,9 +136,9 @@ class User:
     # ----------------------------
     # Permissions
     # ----------------------------
-    def can_rent(self, vehicle: Vehicle) -> bool:
+    def can_rent(self, vehicle: "Vehicle") -> bool:
         """Amateur default: only non-electric bikes."""
-        return isinstance(vehicle, Bike)
+        return not vehicle.is_electric
 
     # ----------------------------
     # Read-only properties

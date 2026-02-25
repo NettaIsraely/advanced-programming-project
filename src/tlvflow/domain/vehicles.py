@@ -21,6 +21,11 @@ class Vehicle(ABC):
     # Protected attribute for tracking maintenance
     _last_maintenance_ride_count: int
 
+    # Property
+    @property
+    def is_electric(self) -> bool:
+        raise NotImplementedError("Subclasses must implement is_electric property")
+
     def __init__(
         self,
         vehicle_id: str,
@@ -114,6 +119,10 @@ class Bike(Vehicle):
         super().__init__(vehicle_id, frame_number, status)
         self.has_child_seat = has_child_seat
 
+    @property
+    def is_electric(self) -> bool:
+        return False
+
     def check_maintenance_needed(self, reports: list[Any] | None = None) -> bool:
         """
         Check if the bike needs maintenance.
@@ -153,6 +162,10 @@ class EBike(Vehicle):
         if not 0 <= battery_level <= 100:
             raise ValueError("Battery level must be between 0 and 100")
         self.battery_level = battery_level
+
+    @property
+    def is_electric(self) -> bool:
+        return True
 
     def check_maintenance_needed(self, reports: list[Any] | None = None) -> bool:
         """
@@ -196,6 +209,10 @@ class Scooter(Vehicle):
         if not 0 <= battery_level <= 100:
             raise ValueError("Battery level must be between 0 and 100")
         self.battery_level = battery_level
+
+    @property
+    def is_electric(self) -> bool:
+        return True
 
     def check_maintenance_needed(self, reports: list[Any] | None = None) -> bool:
         """
