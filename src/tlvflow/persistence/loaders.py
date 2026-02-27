@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 
 from tlvflow.domain.enums import VehicleStatus
-from tlvflow.domain.models import Bike, EBike, Scooter, Vehicle
+from tlvflow.domain.vehicles import Bike, EBike, Scooter, Vehicle
 
 logger = logging.getLogger(__name__)
 
