@@ -7,7 +7,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
-from tlvflow.api.routes import router
+from tlvflow.api.routes import router as api_router
 from tlvflow.logging import setup_logging
 from tlvflow.persistence.in_memory import StationRepository, VehicleRepository
 
@@ -39,4 +39,4 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 app = FastAPI(title="TLVFlow API", lifespan=lifespan)
-app.include_router(router)
+app.include_router(api_router)
