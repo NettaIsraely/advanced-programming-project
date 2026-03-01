@@ -1,16 +1,8 @@
-"""API route handlers."""
-
-import logging
-
 from fastapi import APIRouter
 
-logger = logging.getLogger(__name__)
+from tlvflow.api.routers.health_router import router as health_router
+from tlvflow.api.routers.stations_router import router as stations_router
 
 router = APIRouter()
-
-
-@router.get("/health")  # type: ignore[misc]
-async def health() -> dict[str, str]:
-    """Health check endpoint."""
-    logger.debug("Health check requested")
-    return {"status": "ok"}
+router.include_router(health_router)
+router.include_router(stations_router)
