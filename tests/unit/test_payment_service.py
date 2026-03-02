@@ -1,7 +1,8 @@
 import logging
-import pytest
 
-from src.tlvflow.domain.payment_service import PaymentService, PaymentProcessingError
+import pytest
+from src.tlvflow.domain.payment_service import PaymentProcessingError, PaymentService
+
 
 @pytest.fixture()
 def service() -> PaymentService:
