@@ -8,3 +8,11 @@ class VehicleStatus(Enum):
     IN_USE = "in_use"
     AWAITING_REPORT_REVIEW = "awaiting_report_review"
     DEGRADED = "degraded"
+
+
+class RideStatus(Enum):
+    """Enumeration for ride status."""
+
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
