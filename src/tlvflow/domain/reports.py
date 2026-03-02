@@ -1,5 +1,6 @@
 from datetime import datetime
 from tlvflow.domain.enums import ReportStatus
+import re
 
 class VehicleReport:
     def __init__(self, report_id: str, user_id: str, vehicle_id: str, 
@@ -15,10 +16,16 @@ class VehicleReport:
         self.__submission_time: datetime = submission_time
         self.__image_url: str = image_url
         self.__description: str = description
-        self.__status: ReportStatus = status
+        self.__status: ReportStatus = ReportStatus.SUBMITTED
 
     def verify_damage(self):
-        pass
+        mock_ai_validation_result=True # As we do not have the tools to review the photo and analyse a vehicle's damage, a mock of such a test's result
+        img_url_pattern = r'^https?://.*\.(?:png|jpg|jpeg|gif|bmp)$' # Review a valid image URL structure
+        if re.match(img_url_pattern, self.__image_url, re.IGNORECASE) is None or not mock_ai_validation_result:
+            self.__status=ReportStatus.REJECTED
+            return False
+        self.__status=ReportStatus.VERIFIED
+        return True
 
     def submit_report(self):
         pass
