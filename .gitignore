@@ -15,6 +15,9 @@ venv/
 ENV/
 env/
 
+# === Data changes ===
+data/state.json
+
 # === Packaging / builds ===
 build/
 dist/

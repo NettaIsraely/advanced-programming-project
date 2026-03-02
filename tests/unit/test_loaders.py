@@ -11,6 +11,7 @@ from tlvflow.api.app import lifespan
 from tlvflow.domain.enums import VehicleStatus
 from tlvflow.persistence.loaders import (
     _parse_bool,
+    _parse_date,
     _parse_int,
     _parse_status,
     load_stations_from_csv,
@@ -172,8 +173,11 @@ async def test_app_lifespan_executes_and_sets_state(
 
     import tlvflow.api.app as app_module
 
+    state_json = tmp_path / "state.json"
+
     monkeypatch.setattr(app_module, "VEHICLES_CSV", vehicles_csv)
     monkeypatch.setattr(app_module, "STATIONS_CSV", stations_csv)
+    monkeypatch.setattr(app_module, "STATE_JSON", state_json)
 
     app = FastAPI(lifespan=lifespan)
 
@@ -186,3 +190,13 @@ async def test_app_lifespan_executes_and_sets_state(
 
         assert v_repo.get_by_id("v1") is not None
         assert s_repo.get_by_id(1) is not None
+
+
+def test_parse_date_empty_returns_none() -> None:
+    assert _parse_date("") is None
+    assert _parse_date("   ") is None
+
+
+def test_parse_date_invalid_returns_none() -> None:
+    assert _parse_date("not-a-date") is None
+    assert _parse_date("2026-99-99") is None
