@@ -11,13 +11,13 @@ def service() -> PaymentService:
 
 
 @pytest.fixture()
-def no_sleep(monkeypatch):
+def no_sleep(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[float]]:
     """Patch asyncio.sleep so tests run instantly, and track delays."""
     import asyncio
 
-    calls = {"delays": []}
+    calls: dict[str, list[float]] = {"delays": []}
 
-    async def fake_sleep(delay: float):
+    async def fake_sleep(delay: float) -> None:
         calls["delays"].append(delay)
 
     monkeypatch.setattr(asyncio, "sleep", fake_sleep)
@@ -30,18 +30,21 @@ def no_sleep(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_process_charge_success(service, no_sleep, caplog):
+async def test_process_charge_success(
+    service: PaymentService, no_sleep, caplog
+) -> None:
     caplog.set_level(logging.INFO)
 
     result = await service.process_charge("ride-123", 15.0, "pm_tok_abc")
 
     assert result is True
     assert no_sleep["delays"] == [0.5]
-    assert "Processing charge" in caplog.text
+    assert "Processing charge of" in caplog.text
+    assert "Successfully charged" in caplog.text
 
 
 @pytest.mark.asyncio
-async def test_issue_receipt_success(service, no_sleep, caplog):
+async def test_issue_receipt_success(service: PaymentService, no_sleep, caplog) -> None:
     caplog.set_level(logging.INFO)
 
     result = await service.issue_receipt(
@@ -50,11 +53,12 @@ async def test_issue_receipt_success(service, no_sleep, caplog):
 
     assert result is True
     assert no_sleep["delays"] == [0.2]
-    assert "Issuing receipt" in caplog.text
+    assert "Issuing receipt of" in caplog.text
+    assert "Successfully issued receipt" in caplog.text
 
 
 @pytest.mark.asyncio
-async def test_issue_refund_success(service, no_sleep, caplog):
+async def test_issue_refund_success(service: PaymentService, no_sleep, caplog) -> None:
     caplog.set_level(logging.INFO)
 
     result = await service.issue_refund(
@@ -63,70 +67,95 @@ async def test_issue_refund_success(service, no_sleep, caplog):
 
     assert result is True
     assert no_sleep["delays"] == [0.5]
-    assert "Processing refund" in caplog.text
+    assert "Processing refund of" in caplog.text
+    assert "Successfully refunded" in caplog.text
 
 
 # -------------------------
-# Validation paths
+# Common validation (_validate_common)
 # -------------------------
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("bad_ride_id", ["", "   ", None])
-async def test_invalid_ride_id_raises(service, bad_ride_id):
+@pytest.mark.parametrize("bad_ride_id", ["", "   "])
+async def test_validate_common_invalid_ride_id_raises(
+    service: PaymentService, no_sleep, bad_ride_id: str
+) -> None:
     with pytest.raises(
-        PaymentProcessingError, match="ride_id must be a non-empty string"
+        PaymentProcessingError, match=r"ride_id must be a non-empty string\."
     ):
         await service.process_charge(bad_ride_id, 15.0, "pm_tok_abc")
 
+    assert no_sleep["delays"] == []
+
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("bad_pm_id", ["", "   ", None])
-async def test_invalid_payment_method_id_raises(service, bad_pm_id):
+@pytest.mark.parametrize("bad_payment_method_id", ["", "   "])
+async def test_validate_common_invalid_payment_method_id_raises(
+    service: PaymentService, no_sleep, bad_payment_method_id: str
+) -> None:
     with pytest.raises(
-        PaymentProcessingError, match="payment_method_id must be a non-empty string"
+        PaymentProcessingError,
+        match=r"payment_method_id must be a non-empty string\.",
     ):
-        await service.process_charge("ride-123", 15.0, bad_pm_id)
+        await service.process_charge("ride-123", 15.0, bad_payment_method_id)
+
+    assert no_sleep["delays"] == []
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("bad_amount", [0, 0.0, -1, -10.5])
-async def test_invalid_amount_raises(service, bad_amount):
+async def test_validate_common_invalid_amount_raises_on_all_methods(
+    service: PaymentService, no_sleep, bad_amount: float
+) -> None:
     with pytest.raises(
-        PaymentProcessingError, match="Amount must be greater than zero"
+        PaymentProcessingError, match=r"Amount must be greater than zero\."
     ):
         await service.process_charge("ride-123", float(bad_amount), "pm_tok_abc")
 
     with pytest.raises(
-        PaymentProcessingError, match="Amount must be greater than zero"
+        PaymentProcessingError, match=r"Amount must be greater than zero\."
     ):
         await service.issue_receipt(
             "ride-123", float(bad_amount), "user@example.com", "pm_tok_abc"
         )
 
     with pytest.raises(
-        PaymentProcessingError, match="Amount must be greater than zero"
+        PaymentProcessingError, match=r"Amount must be greater than zero\."
     ):
         await service.issue_refund(
             "ride-123", float(bad_amount), "user@example.com", "pm_tok_abc"
         )
 
+    assert no_sleep["delays"] == []
+
 
 # -------------------------
-# Email Validation paths
+# Email validation (only: not email OR "@" not in email)
 # -------------------------
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("bad_email", ["", "   ", "just-a-string", "domain.com", None])
-async def test_invalid_email_raises(service, bad_email):
-    # Notice we don't test strings with "@", because your current code accepts them.
+@pytest.mark.parametrize("bad_email", ["", "   ", "just-a-string", "domain.com"])
+async def test_issue_receipt_invalid_email_raises(
+    service: PaymentService, no_sleep, bad_email: str
+) -> None:
     with pytest.raises(
-        PaymentProcessingError, match="email must be a valid email address"
+        PaymentProcessingError, match=r"email must be a valid email address\."
     ):
         await service.issue_receipt("ride-123", 15.0, bad_email, "pm_tok_abc")
 
+    assert no_sleep["delays"] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bad_email", ["", "   ", "just-a-string", "domain.com"])
+async def test_issue_refund_invalid_email_raises(
+    service: PaymentService, no_sleep, bad_email: str
+) -> None:
     with pytest.raises(
-        PaymentProcessingError, match="email must be a valid email address"
+        PaymentProcessingError, match=r"email must be a valid email address\."
     ):
         await service.issue_refund("ride-123", 15.0, bad_email, "pm_tok_abc")
+
+    assert no_sleep["delays"] == []
