@@ -254,3 +254,82 @@ class Scooter(Vehicle):
         base_maintenance = super().check_maintenance_needed(reports)
         # Also check battery level
         return base_maintenance or self.battery_level < 20
+
+
+class VehicleFactory:
+    """
+    Factory class responsible for creating Vehicle instances.
+
+    Centralizes vehicle creation logic to:
+    - Avoid duplication
+    - Decouple object creation from business logic
+    - Improve extensibility
+    """
+
+    _vehicle_registry: dict[str, type[Vehicle]] = {
+        "bike": Bike,
+        "ebike": EBike,
+        "scooter": Scooter,
+    }
+
+    @classmethod
+    def create_vehicle(
+        cls,
+        vehicle_type: str,
+        vehicle_id: str,
+        frame_number: str,
+        *,
+        status: VehicleStatus = VehicleStatus.AVAILABLE,
+        has_child_seat: bool = False,
+        battery_level: int = 100,
+    ) -> Vehicle:
+        """
+        Create and return a Vehicle instance based on vehicle_type.
+
+        Args:
+            vehicle_type: Type of vehicle ("bike", "ebike", "scooter")
+            vehicle_id: Unique identifier
+            frame_number: Frame number
+            status: Vehicle status
+            has_child_seat: Relevant only for Bike
+            battery_level: Relevant only for EBike/Scooter
+
+        Returns:
+            Vehicle instance
+
+        Raises:
+            ValueError: If vehicle_type is not supported
+        """
+
+        normalized_type = vehicle_type.strip().lower()
+
+        if normalized_type not in cls._vehicle_registry:
+            raise ValueError(f"Unsupported vehicle type: {vehicle_type}")
+
+        # Explicit type narrowing for mypy
+        if normalized_type == "bike":
+            return Bike(
+                vehicle_id=vehicle_id,
+                frame_number=frame_number,
+                has_child_seat=has_child_seat,
+                status=status,
+            )
+
+        if normalized_type == "ebike":
+            return EBike(
+                vehicle_id=vehicle_id,
+                frame_number=frame_number,
+                battery_level=battery_level,
+                status=status,
+            )
+
+        if normalized_type == "scooter":
+            return Scooter(
+                vehicle_id=vehicle_id,
+                frame_number=frame_number,
+                battery_level=battery_level,
+                status=status,
+            )
+
+        # Defensive fallback (should never happen)
+        raise ValueError(f"Unsupported vehicle type: {vehicle_type}")
