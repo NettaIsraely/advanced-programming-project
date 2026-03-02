@@ -60,40 +60,40 @@ def test_login_verifies_password():
     assert user.login("wrongpass123") is False
 
 
-# tests start_ride sets current ride and prevents double-start
+# tests start_ride sets current vehicle and prevents double-start
 def test_start_ride_sets_current_and_rejects_second_active_ride():
     user = make_user()
     ride = object()
-    user.start_ride(ride)
+    user.start_ride("v_1")
+    user.set_current_ride(ride)
     assert user.current_ride is ride
 
     with pytest.raises(ValueError, match="active ride"):
-        user.start_ride(object())
+        user.start_ride("v_2")
 
 
 # tests end_ride rejects when no active ride
 def test_end_ride_rejects_when_no_active_ride():
     user = make_user()
     with pytest.raises(ValueError, match="no active ride"):
-        user.end_ride(object())
+        user.end_ride("station_1")
 
 
-# tests end_ride rejects mismatched ride object
-def test_end_ride_rejects_mismatched_ride():
+# tests end_ride rejects invalid station_id
+def test_end_ride_rejects_invalid_station_id():
     user = make_user()
-    ride = object()
-    user.start_ride(ride)
-
-    with pytest.raises(ValueError, match="Ride mismatch"):
-        user.end_ride(object())
+    user.start_ride("v_1")
+    with pytest.raises(ValueError, match="station_id must be"):
+        user.end_ride("  ")
 
 
 # tests end_ride appends to history and clears current ride
 def test_end_ride_appends_to_history_and_clears_current():
     user = make_user()
     ride = {"ride_id": "r1"}
-    user.start_ride(ride)
-    user.end_ride(ride)
+    user.start_ride("v_1")
+    user.set_current_ride(ride)
+    user.end_ride("station_1")
 
     assert user.current_ride is None
     assert user.view_ride_history() == (ride,)
@@ -103,8 +103,9 @@ def test_end_ride_appends_to_history_and_clears_current():
 def test_view_ride_history_returns_tuple_snapshot():
     user = make_user()
     ride = object()
-    user.start_ride(ride)
-    user.end_ride(ride)
+    user.start_ride("v_1")
+    user.set_current_ride(ride)
+    user.end_ride("station_1")
 
     history = user.view_ride_history()
     assert isinstance(history, tuple)
@@ -112,40 +113,38 @@ def test_view_ride_history_returns_tuple_snapshot():
         history.append(object())  # type: ignore[attr-defined]
 
 
-# tests report_vehicle_issue validations for required fields
+# tests report_vehicle validations for required vehicle_id
 @pytest.mark.parametrize(
-    ("ride_id", "vehicle_id", "msg"),
+    ("vehicle_id", "msg"),
     [
-        ("", "v1", "ride_id is required"),
-        (None, "v1", "ride_id is required"),  # type: ignore[arg-type]
-        ("r1", "", "vehicle_id is required"),
-        ("r1", None, "vehicle_id is required"),  # type: ignore[arg-type]
+        ("", "vehicle_id must be"),
+        ("   ", "vehicle_id must be"),
+        (None, "vehicle_id must be"),  # type: ignore[arg-type]
     ],
 )
-def test_report_vehicle_issue_requires_ids(ride_id, vehicle_id, msg):
+def test_report_vehicle_requires_vehicle_id(vehicle_id, msg):
     user = make_user()
     with pytest.raises(ValueError, match=msg):
-        user.report_vehicle_issue(
-            ride_id=ride_id,
+        user.report_vehicle(
             vehicle_id=vehicle_id,
+            image="",
+            description="",
         )
 
 
-# tests report_vehicle_issue includes optional keys only when provided
-def test_report_vehicle_issue_payload_optional_fields():
+# tests report_vehicle includes optional keys only when provided
+def test_report_vehicle_payload_optional_fields():
     user = make_user()
 
-    payload = user.report_vehicle_issue(ride_id="r1", vehicle_id="v1")
-    assert payload == {"ride_id": "r1", "vehicle_id": "v1"}
+    payload = user.report_vehicle(vehicle_id="v1", image="", description="")
+    assert payload == {"vehicle_id": "v1"}
 
-    payload = user.report_vehicle_issue(
-        ride_id="r1",
+    payload = user.report_vehicle(
         vehicle_id="v1",
-        image_url="https://example.com/img.png",
+        image="https://example.com/img.png",
         description="flat tire",
     )
     assert payload == {
-        "ride_id": "r1",
         "vehicle_id": "v1",
         "image_url": "https://example.com/img.png",
         "description": "flat tire",
@@ -228,6 +227,18 @@ def test_amateur_user_is_user():
     )
     assert isinstance(user, User)
     assert user.can_rent(DummyVehicle(is_electric=False)) is True
+
+
+# tests AmateurUser.validate_license always returns True
+def test_amateur_user_validate_license_always_true():
+    user = AmateurUser.register(
+        name="Ana",
+        email="ana@example.com",
+        password="password123",
+        payment_method_id="pm_aaa",
+        user_id="am_1",
+    )
+    assert user.validate_license() is True
 
 
 # tests validation helpers reject invalid inputs
