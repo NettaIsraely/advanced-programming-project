@@ -29,7 +29,7 @@ class VehicleReport:
         return True
 
     def submit_report(self):
-        pass
+        self.__status=ReportStatus.SUBMITTED
 
     def _create_maintenance_event(self):
         #TODO - implement after creating maintance event class
