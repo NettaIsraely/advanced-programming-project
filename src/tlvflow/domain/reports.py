@@ -1,14 +1,15 @@
 from datetime import datetime
 from tlvflow.domain.enums import ReportStatus
 import re
+from uuid import uuid4
 
 class VehicleReport:
-    def __init__(self, report_id: str, user_id: str, vehicle_id: str, 
+    def __init__(self, user_id: str, vehicle_id: str, 
                  submission_time: datetime, image_url: str, 
-                 description: str, status: ReportStatus):
+                 description: str):
         
         # Protected attributes
-        self._report_id: str = report_id
+        self._report_id: str = uuid4().hex
         self._user_id: str = user_id
         self._vehicle_id: str = vehicle_id
         
@@ -31,4 +32,5 @@ class VehicleReport:
         pass
 
     def _create_maintenance_event(self):
+        #TODO - implement after creating maintance event class
         pass
