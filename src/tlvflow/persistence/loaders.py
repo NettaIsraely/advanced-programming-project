@@ -2,6 +2,7 @@
 
 import csv
 import logging
+from datetime import date, datetime
 from pathlib import Path
 
 from tlvflow.domain.enums import VehicleStatus
@@ -19,6 +20,7 @@ FRAME_NUMBER = "frame_number"  # fallback if not in CSV
 VEHICLE_TYPE = "vehicle_type"
 STATUS = "status"
 RIDES_SINCE_LAST_TREATED = "rides_since_last_treated"
+LAST_TREATED_DATE = "last_treated_date"
 HAS_CHILD_SEAT = "has_child_seat"
 BATTERY_LEVEL = "battery_level"
 
@@ -53,6 +55,18 @@ def _parse_int(value: str, default: int = 0) -> int:
     if not stripped:
         return default
     return int(stripped)
+
+
+def _parse_date(value: str) -> date | None:
+    """Parse YYYY-MM-DD string to date, return None if empty/invalid."""
+    stripped = value.strip()
+    if not stripped:
+        return None
+    try:
+        dt = datetime.strptime(stripped, "%Y-%m-%d")
+        return dt.date()
+    except ValueError:
+        return None
 
 
 def load_vehicles_from_csv(path: str | Path) -> list[Vehicle]:
@@ -138,8 +152,9 @@ def load_vehicles_from_csv(path: str | Path) -> list[Vehicle]:
                         status=status,
                     )
 
-                vehicle.ride_count = rides_since
-                vehicle._last_maintenance_ride_count = 0
+                vehicle.rides_since_last_treated = rides_since
+                last_treated = _parse_date(row.get(LAST_TREATED_DATE, ""))
+                vehicle._last_treated_date = last_treated
                 vehicles.append(vehicle)
 
             except (ValueError, KeyError) as e:

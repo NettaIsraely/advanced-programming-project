@@ -78,7 +78,12 @@ def test_load_vehicles_branches_and_skips(tmp_path: Path) -> None:
     assert scooter.battery_level == 0
 
     # ride_count assignment path
-    assert bike.ride_count == 5
+    assert bike.rides_since_last_treated == 5
+    # last_treated_date from CSV (b1 row has 2026-01-01)
+    assert bike.last_treated_date is not None
+    assert bike.last_treated_date.year == 2026
+    assert bike.last_treated_date.month == 1
+    assert bike.last_treated_date.day == 1
 
 
 def test_load_stations_missing_file(tmp_path: Path) -> None:

@@ -1,4 +1,5 @@
 from abc import ABC
+from datetime import date, datetime
 from typing import Any
 
 from tlvflow.domain.enums import VehicleStatus
@@ -15,11 +16,11 @@ class Vehicle(ABC):
     __status: VehicleStatus
 
     # Public attributes
-    ride_count: int
+    rides_since_last_treated: int
     has_helmet: bool
 
-    # Protected attribute for tracking maintenance
-    _last_maintenance_ride_count: int
+    # Protected: last treatment date (None if never treated)
+    _last_treated_date: date | None
 
     # Property
     @property
@@ -31,6 +32,9 @@ class Vehicle(ABC):
         vehicle_id: str,
         frame_number: str,
         status: VehicleStatus = VehicleStatus.AVAILABLE,
+        *,
+        rides_since_last_treated: int = 0,
+        last_treated_date: date | datetime | None = None,
     ):
         """
         Initialize a Vehicle instance.
@@ -39,20 +43,39 @@ class Vehicle(ABC):
             vehicle_id: Unique identifier for the vehicle
             frame_number: Frame/chassis number of the vehicle
             status: Current status of the vehicle (default: AVAILABLE)
+            rides_since_last_treated: Number of rides since last treatment (default: 0)
+            last_treated_date: Date of last treatment (default: None)
         """
         self._vehicle_id = vehicle_id
         self._frame_number = frame_number
         self.__status = status
-        self.ride_count = 0
+        self.rides_since_last_treated = rides_since_last_treated
         self.has_helmet = False
-        self._last_maintenance_ride_count = 0
+        if last_treated_date is None:
+            self._last_treated_date = None
+        elif isinstance(last_treated_date, datetime):
+            self._last_treated_date = last_treated_date.date()
+        else:
+            self._last_treated_date = last_treated_date
+
+    def set_status(self, status: VehicleStatus) -> None:
+        """Set the vehicle status."""
+        self.__status = status
+
+    def is_unrentable(self) -> bool:
+        """True if vehicle is unrentable per spec (rides_since_last_treated > 10)."""
+        return self.rides_since_last_treated > 10
+
+    def is_treatment_eligible(self) -> bool:
+        """True if vehicle is eligible for treatment per spec (rides_since_last_treated >= 7)."""
+        return self.rides_since_last_treated >= 7
 
     def check_maintenance_needed(self, reports: list[Any] | None = None) -> bool:
         """
         Check if the vehicle needs maintenance.
 
         Maintenance is needed if:
-        - 10 or more rides have been done since last maintenance, OR
+        - 10 or more rides have been done since last treatment, OR
         - A user has reported maintenance needed (via VehicleReport)
 
         Args:
@@ -61,15 +84,10 @@ class Vehicle(ABC):
         Returns:
             bool: True if maintenance is needed, False otherwise
         """
-        # Check if 10+ rides since last maintenance
-        rides_since_maintenance = self.ride_count - self._last_maintenance_ride_count
-        if rides_since_maintenance >= 10:
+        if self.rides_since_last_treated >= 10:
             return True
 
-        # Check if there are any reports for this vehicle
         if reports:
-            # Assuming VehicleReport has a vehicle_id attribute
-            # that matches self._vehicle_id
             for report in reports:
                 if (
                     hasattr(report, "_vehicle_id")
@@ -81,9 +99,11 @@ class Vehicle(ABC):
 
     def complete_maintenance(self) -> None:
         """
-        Mark maintenance as complete, resetting the maintenance tracking.
+        Mark maintenance/treatment as complete. Resets rides_since_last_treated to 0
+        and sets last_treated_date to today.
         """
-        self._last_maintenance_ride_count = self.ride_count
+        self.rides_since_last_treated = 0
+        self._last_treated_date = date.today()
 
     def check_status(self) -> VehicleStatus:
         """
@@ -93,6 +113,11 @@ class Vehicle(ABC):
             VehicleStatus: The current status of the vehicle
         """
         return self.__status
+
+    @property
+    def last_treated_date(self) -> date | None:
+        """Return the date of last treatment, or None if never treated."""
+        return self._last_treated_date
 
 
 class Bike(Vehicle):
