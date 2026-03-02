@@ -288,11 +288,11 @@ class VehicleFactory:
 
         Args:
             vehicle_type: Type of vehicle ("bike", "ebike", "scooter")
-            vehicle_id: Unique identifier for the vehicle
-            frame_number: Frame number of the vehicle
-            status: Vehicle status (default: AVAILABLE)
-            has_child_seat: Only relevant for Bike
-            battery_level: Only relevant for EBike/Scooter
+            vehicle_id: Unique identifier
+            frame_number: Frame number
+            status: Vehicle status
+            has_child_seat: Relevant only for Bike
+            battery_level: Relevant only for EBike/Scooter
 
         Returns:
             Vehicle instance
@@ -300,13 +300,14 @@ class VehicleFactory:
         Raises:
             ValueError: If vehicle_type is not supported
         """
+
         normalized_type = vehicle_type.strip().lower()
 
-        vehicle_class = cls._vehicle_registry.get(normalized_type)
-        if vehicle_class is None:
+        if normalized_type not in cls._vehicle_registry:
             raise ValueError(f"Unsupported vehicle type: {vehicle_type}")
 
-        if vehicle_class is Bike:
+        # Explicit type narrowing for mypy
+        if normalized_type == "bike":
             return Bike(
                 vehicle_id=vehicle_id,
                 frame_number=frame_number,
@@ -314,8 +315,16 @@ class VehicleFactory:
                 status=status,
             )
 
-        if vehicle_class in {EBike, Scooter}:
-            return vehicle_class(
+        if normalized_type == "ebike":
+            return EBike(
+                vehicle_id=vehicle_id,
+                frame_number=frame_number,
+                battery_level=battery_level,
+                status=status,
+            )
+
+        if normalized_type == "scooter":
+            return Scooter(
                 vehicle_id=vehicle_id,
                 frame_number=frame_number,
                 battery_level=battery_level,
