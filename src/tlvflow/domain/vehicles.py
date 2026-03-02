@@ -1,6 +1,6 @@
 from abc import ABC
 from datetime import date, datetime
-from typing import Any, Type
+from typing import Any
 
 from tlvflow.domain.enums import VehicleStatus
 
@@ -266,7 +266,7 @@ class VehicleFactory:
     - Improve extensibility
     """
 
-    _vehicle_registry: dict[str, Type[Vehicle]] = {
+    _vehicle_registry: dict[str, type[Vehicle]] = {
         "bike": Bike,
         "ebike": EBike,
         "scooter": Scooter,
