@@ -1,6 +1,6 @@
 from abc import ABC
 from datetime import date, datetime
-from typing import Any
+from typing import Any, Type
 
 from tlvflow.domain.enums import VehicleStatus
 
