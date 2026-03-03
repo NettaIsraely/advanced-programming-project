@@ -1,6 +1,5 @@
 from enum import Enum
 
-
 class VehicleStatus(Enum):
     """Enumeration for vehicle status."""
 
