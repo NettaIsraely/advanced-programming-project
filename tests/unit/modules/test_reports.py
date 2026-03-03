@@ -86,3 +86,4 @@ def test_submit_report(valid_report):
     valid_report.submit_report()
     
     assert valid_report._VehicleReport__status == ReportStatus.SUBMITTED
+    

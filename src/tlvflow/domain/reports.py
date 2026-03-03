@@ -49,3 +49,4 @@ class VehicleReport:
     def _create_maintenance_event(self):
         # TODO: Implement after creating maintenance event class
         pass
+    
