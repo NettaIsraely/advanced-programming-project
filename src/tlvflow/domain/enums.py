@@ -10,6 +10,15 @@ class VehicleStatus(Enum):
     DEGRADED = "degraded"
 
 
+class ReportStatus(Enum):
+    """Enumeration for vehicle report status."""
+
+    SUBMITTED = "submitted"
+    UNDER_REVIEW = "under_review"
+    VERIFIED = "verified"
+    REJECTED = "rejected"
+
+
 class RideStatus(Enum):
     """Enumeration for ride status."""
 
