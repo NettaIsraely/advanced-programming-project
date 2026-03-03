@@ -11,11 +11,12 @@ from tlvflow.api.routes import router as api_router
 from tlvflow.logging import setup_logging
 from tlvflow.persistence.in_memory import StationRepository, VehicleRepository
 from tlvflow.persistence.state_store import StateStore
+from tlvflow.persistence.users_repository import UsersRepository
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
-# Path to vehicles.csv relative to project root
+# Paths relative to project root
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 VEHICLES_CSV = PROJECT_ROOT / "data" / "vehicles.csv"
 STATIONS_CSV = PROJECT_ROOT / "data" / "stations.csv"
@@ -32,11 +33,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     vehicle_repo = VehicleRepository()
     station_repo = StationRepository()
+    users_repo = UsersRepository()
 
     if snapshot:
         logger.info("Loading application state from %s", STATE_JSON)
         vehicle_repo.restore(snapshot.get("vehicles", {}))
         station_repo.restore(snapshot.get("stations", {}), vehicle_repo=vehicle_repo)
+        users_repo.restore(snapshot.get("users", {}))
     else:
         vehicle_count = vehicle_repo.load_from_csv(VEHICLES_CSV)
         logger.info("Loaded %d vehicles into memory", vehicle_count)
@@ -46,6 +49,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     app.state.vehicle_repository = vehicle_repo
     app.state.station_repository = station_repo
+    app.state.users_repository = users_repo
     app.state.state_store = state_store
 
     try:
@@ -56,6 +60,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             {
                 "vehicles": vehicle_repo.snapshot(),
                 "stations": station_repo.snapshot(),
+                "users": users_repo.snapshot(),
             }
         )
 
