@@ -15,3 +15,10 @@ class ReportStatus(Enum):
     UNDER_REVIEW = "under_review"
     VERIFIED = "verified"
     REJECTED = "rejected"
+
+class RideStatus(Enum):
+    """Enumeration for ride status."""
+
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"

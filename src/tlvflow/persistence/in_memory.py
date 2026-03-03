@@ -1,9 +1,14 @@
 """In-memory storage repositories with CSV loading."""
 
-from pathlib import Path
+from __future__ import annotations
 
+from datetime import date
+from pathlib import Path
+from typing import Any
+
+from tlvflow.domain.enums import VehicleStatus
 from tlvflow.domain.stations import Station
-from tlvflow.domain.vehicles import Vehicle
+from tlvflow.domain.vehicles import Bike, EBike, Scooter, Vehicle
 from tlvflow.persistence.loaders import load_stations_from_csv, load_vehicles_from_csv
 
 
@@ -24,9 +29,23 @@ class VehicleRepository:
             Number of vehicles loaded.
         """
         vehicles = load_vehicles_from_csv(path)
-        for v in vehicles:
-            self._vehicles[v._vehicle_id] = v
+        for vehicle in vehicles:
+            self._vehicles[vehicle._vehicle_id] = vehicle
         return len(vehicles)
+
+    def snapshot(self) -> dict[str, Any]:
+        """Return a JSON-serializable snapshot of the repository."""
+        return {
+            vehicle_id: _vehicle_to_dict(vehicle)
+            for vehicle_id, vehicle in self._vehicles.items()
+        }
+
+    def restore(self, snapshot: dict[str, Any]) -> None:
+        """Replace the repository contents from a snapshot."""
+        self._vehicles.clear()
+        for vehicle_id, raw in snapshot.items():
+            vehicle = _vehicle_from_dict(raw)
+            self._vehicles[vehicle_id] = vehicle
 
     def get_all(self) -> list[Vehicle]:
         """Return all vehicles in memory."""
@@ -62,9 +81,41 @@ class StationRepository:
             Number of stations loaded.
         """
         stations = load_stations_from_csv(path)
-        for s in stations:
-            self._stations[s.station_id] = s
+        for station in stations:
+            self._stations[station.station_id] = station
         return len(stations)
+
+    def snapshot(self) -> dict[str, Any]:
+        """Return a JSON-serializable snapshot of the repository."""
+        return {
+            str(station_id): _station_to_dict(station)
+            for station_id, station in self._stations.items()
+        }
+
+    def restore(
+        self, snapshot: dict[str, Any], *, vehicle_repo: VehicleRepository
+    ) -> None:
+        """Replace the repository contents from a snapshot."""
+        self._stations.clear()
+
+        stations: dict[int, Station] = {}
+        docks: dict[int, list[str]] = {}
+
+        for station_id_str, raw in snapshot.items():
+            station, dock_vehicle_ids = _station_from_dict(raw)
+            station_id = int(station_id_str)
+            stations[station_id] = station
+            docks[station_id] = dock_vehicle_ids
+
+        # Dock vehicles after both repos are populated to preserve object identity.
+        for station_id, vehicle_ids in docks.items():
+            station = stations[station_id]
+            for vehicle_id in vehicle_ids:
+                vehicle = vehicle_repo.get_by_id(vehicle_id)
+                if vehicle is not None and not station.is_full:
+                    station.dock(vehicle)
+
+        self._stations = stations
 
     def get_all(self) -> list[Station]:
         """Return all stations in memory."""
@@ -81,3 +132,99 @@ class StationRepository:
     def clear(self) -> None:
         """Remove all stations from memory."""
         self._stations.clear()
+
+
+def _vehicle_to_dict(vehicle: Vehicle) -> dict[str, Any]:
+    data: dict[str, Any] = {
+        "vehicle_id": vehicle._vehicle_id,
+        "frame_number": vehicle._frame_number,
+        "status": vehicle.check_status().value,
+        "rides_since_last_treated": int(vehicle.rides_since_last_treated),
+        "last_treated_date": (
+            vehicle.last_treated_date.isoformat()
+            if vehicle.last_treated_date is not None
+            else None
+        ),
+        "has_helmet": bool(vehicle.has_helmet),
+    }
+
+    if isinstance(vehicle, Bike):
+        data["vehicle_type"] = "bike"
+        data["has_child_seat"] = bool(vehicle.has_child_seat)
+    elif isinstance(vehicle, EBike):
+        data["vehicle_type"] = "ebike"
+        data["battery_level"] = int(vehicle.battery_level)
+    elif isinstance(vehicle, Scooter):
+        data["vehicle_type"] = "scooter"
+        data["battery_level"] = int(vehicle.battery_level)
+    else:
+        raise TypeError(f"Unsupported vehicle type: {type(vehicle)!r}")
+
+    return data
+
+
+def _vehicle_from_dict(data: dict[str, Any]) -> Vehicle:
+    vehicle_type = str(data["vehicle_type"])
+    status = VehicleStatus(str(data.get("status", VehicleStatus.AVAILABLE.value)))
+
+    vehicle_id = str(data["vehicle_id"])
+    frame_number = str(data.get("frame_number", f"FRAME-{vehicle_id}"))
+
+    if vehicle_type == "bike":
+        vehicle: Vehicle = Bike(
+            vehicle_id=vehicle_id,
+            frame_number=frame_number,
+            has_child_seat=bool(data.get("has_child_seat", False)),
+            status=status,
+        )
+    elif vehicle_type == "ebike":
+        vehicle = EBike(
+            vehicle_id=vehicle_id,
+            frame_number=frame_number,
+            battery_level=int(data.get("battery_level", 100)),
+            status=status,
+        )
+    elif vehicle_type == "scooter":
+        vehicle = Scooter(
+            vehicle_id=vehicle_id,
+            frame_number=frame_number,
+            battery_level=int(data.get("battery_level", 100)),
+            status=status,
+        )
+    else:
+        raise ValueError(f"Invalid vehicle_type in snapshot: {vehicle_type!r}")
+
+    vehicle.rides_since_last_treated = int(data.get("rides_since_last_treated", 0))
+    vehicle.has_helmet = bool(data.get("has_helmet", False))
+
+    last_treated = data.get("last_treated_date")
+    if isinstance(last_treated, str) and last_treated:
+        vehicle._last_treated_date = date.fromisoformat(last_treated)
+    else:
+        vehicle._last_treated_date = None
+
+    return vehicle
+
+
+def _station_to_dict(station: Station) -> dict[str, Any]:
+    return {
+        "station_id": station.station_id,
+        "name": station.name,
+        "latitude": station.latitude,
+        "longitude": station.longitude,
+        "capacity": station.capacity,
+        "vehicle_ids": [v._vehicle_id for v in station.vehicles],
+    }
+
+
+def _station_from_dict(data: dict[str, Any]) -> tuple[Station, list[str]]:
+    station = Station(
+        station_id=int(data["station_id"]),
+        name=str(data["name"]),
+        latitude=float(data["latitude"]),
+        longitude=float(data["longitude"]),
+        capacity=int(data["capacity"]),
+    )
+
+    vehicle_ids = [str(v_id) for v_id in data.get("vehicle_ids", [])]
+    return station, vehicle_ids

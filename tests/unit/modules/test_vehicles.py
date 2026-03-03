@@ -37,10 +37,33 @@ def test_vehicle_init_and_check_status_sets_expected_state() -> None:
 
     assert v._vehicle_id == "V1"
     assert v._frame_number == "F1"
-    assert v.ride_count == 0
+    assert v.rides_since_last_treated == 0
     assert v.has_helmet is False
-    assert v._last_maintenance_ride_count == 0
+    assert v.last_treated_date is None
     assert v.check_status() == VehicleStatus.DEGRADED
+
+    v.set_status(VehicleStatus.AVAILABLE)
+    assert v.check_status() == VehicleStatus.AVAILABLE
+
+
+# Spec: unrentable at rides_since_last_treated > 10
+def test_is_unrentable_when_over_10_rides() -> None:
+    b = Bike("B", "FB")
+    b.rides_since_last_treated = 10
+    assert b.is_unrentable() is False
+    b.rides_since_last_treated = 11
+    assert b.is_unrentable() is True
+
+
+# Spec: treatment eligible at >= 7
+def test_is_treatment_eligible_at_7_or_more() -> None:
+    b = Bike("B", "FB")
+    b.rides_since_last_treated = 6
+    assert b.is_treatment_eligible() is False
+    b.rides_since_last_treated = 7
+    assert b.is_treatment_eligible() is True
+    b.rides_since_last_treated = 8
+    assert b.is_treatment_eligible() is True
 
 
 # Ensure the base Vehicle.is_electric property raises NotImplementedError
@@ -58,11 +81,10 @@ def test_is_electric_property_per_type() -> None:
     assert Scooter("S1", "FS1").is_electric is True
 
 
-# Cover the "10+ rides since last maintenance" branch in Vehicle.check_maintenance_needed.
+# Cover the "10+ rides since last treatment" branch in Vehicle.check_maintenance_needed.
 def test_maintenance_needed_when_ten_or_more_rides_since_last_maintenance() -> None:
     b = Bike("B2", "FB2")
-    b.ride_count = 10
-    b._last_maintenance_ride_count = 0
+    b.rides_since_last_treated = 10
 
     assert b.check_maintenance_needed() is True
 
@@ -70,8 +92,7 @@ def test_maintenance_needed_when_ten_or_more_rides_since_last_maintenance() -> N
 # Cover the "reports is None or empty" path where maintenance is NOT needed.
 def test_maintenance_not_needed_when_under_threshold_and_no_reports() -> None:
     b = Bike("B3", "FB3")
-    b.ride_count = 9
-    b._last_maintenance_ride_count = 0
+    b.rides_since_last_treated = 9
 
     assert b.check_maintenance_needed() is False
     assert b.check_maintenance_needed([]) is False
@@ -80,8 +101,7 @@ def test_maintenance_not_needed_when_under_threshold_and_no_reports() -> None:
 # Cover the report loop branch that triggers maintenance when a report matches _vehicle_id.
 def test_maintenance_needed_when_matching_report_exists() -> None:
     b = Bike("B4", "FB4")
-    b.ride_count = 1
-    b._last_maintenance_ride_count = 0
+    b.rides_since_last_treated = 1
 
     reports = [_Report("OTHER"), _Report("B4")]
     assert b.check_maintenance_needed(reports) is True
@@ -91,28 +111,29 @@ def test_maintenance_needed_when_matching_report_exists() -> None:
 # including an object without _vehicle_id (hasattr guard).
 def test_maintenance_not_needed_when_reports_do_not_match_or_missing_attr() -> None:
     b = Bike("B5", "FB5")
-    b.ride_count = 1
-    b._last_maintenance_ride_count = 0
+    b.rides_since_last_treated = 1
 
     reports = [_Report("OTHER"), _ReportWithoutVehicleId()]
     assert b.check_maintenance_needed(reports) is False
 
 
-# Cover complete_maintenance(), ensuring it updates _last_maintenance_ride_count
-# and therefore affects subsequent maintenance checks.
+# Cover complete_maintenance(), ensuring it resets rides_since_last_treated and sets last_treated_date.
 def test_complete_maintenance_resets_maintenance_counter() -> None:
+    from datetime import date
+
     b = Bike("B6", "FB6")
-    b.ride_count = 12
+    b.rides_since_last_treated = 12
     assert b.check_maintenance_needed() is True
 
     b.complete_maintenance()
-    assert b._last_maintenance_ride_count == 12
+    assert b.rides_since_last_treated == 0
+    assert b.last_treated_date == date.today()
     assert b.check_maintenance_needed() is False
 
-    b.ride_count = 21  # 9 rides since last maintenance
+    b.rides_since_last_treated = 9
     assert b.check_maintenance_needed() is False
 
-    b.ride_count = 22  # 10 rides since last maintenance
+    b.rides_since_last_treated = 10
     assert b.check_maintenance_needed() is True
 
 
@@ -134,8 +155,7 @@ def test_scooter_invalid_battery_level_raises(battery_level: int) -> None:
 # if base maintenance is False but battery < 20, it should still return True.
 def test_ebike_maintenance_needed_when_battery_low_even_if_base_false() -> None:
     e = EBike("E3", "FE3", battery_level=19)
-    e.ride_count = 0
-    e._last_maintenance_ride_count = 0
+    e.rides_since_last_treated = 0
 
     assert e.check_maintenance_needed() is True
 
@@ -144,8 +164,7 @@ def test_ebike_maintenance_needed_when_battery_low_even_if_base_false() -> None:
 # ensuring it returns True regardless of battery level.
 def test_ebike_maintenance_needed_when_base_true_even_if_battery_ok() -> None:
     e = EBike("E4", "FE4", battery_level=100)
-    e.ride_count = 10
-    e._last_maintenance_ride_count = 0
+    e.rides_since_last_treated = 10
 
     assert e.check_maintenance_needed() is True
 
@@ -154,8 +173,7 @@ def test_ebike_maintenance_needed_when_base_true_even_if_battery_ok() -> None:
 # and battery is NOT low, so result should be False.
 def test_ebike_maintenance_not_needed_when_base_false_and_battery_ok() -> None:
     e = EBike("E5", "FE5", battery_level=20)
-    e.ride_count = 3
-    e._last_maintenance_ride_count = 0
+    e.rides_since_last_treated = 3
 
     assert e.check_maintenance_needed() is False
 
@@ -163,8 +181,7 @@ def test_ebike_maintenance_not_needed_when_base_false_and_battery_ok() -> None:
 # Mirror the EBike battery logic tests for Scooter: low battery triggers maintenance.
 def test_scooter_maintenance_needed_when_battery_low_even_if_base_false() -> None:
     s = Scooter("S3", "FS3", battery_level=0)
-    s.ride_count = 0
-    s._last_maintenance_ride_count = 0
+    s.rides_since_last_treated = 0
 
     assert s.check_maintenance_needed() is True
 
@@ -172,8 +189,7 @@ def test_scooter_maintenance_needed_when_battery_low_even_if_base_false() -> Non
 # Scooter returns True when base maintenance is True, regardless of battery.
 def test_scooter_maintenance_needed_when_base_true_even_if_battery_ok() -> None:
     s = Scooter("S4", "FS4", battery_level=100)
-    s.ride_count = 10
-    s._last_maintenance_ride_count = 0
+    s.rides_since_last_treated = 10
 
     assert s.check_maintenance_needed() is True
 
@@ -181,7 +197,6 @@ def test_scooter_maintenance_needed_when_base_true_even_if_battery_ok() -> None:
 # Scooter returns False when base maintenance is False and battery is not low.
 def test_scooter_maintenance_not_needed_when_base_false_and_battery_ok() -> None:
     s = Scooter("S5", "FS5", battery_level=20)
-    s.ride_count = 2
-    s._last_maintenance_ride_count = 0
+    s.rides_since_last_treated = 2
 
     assert s.check_maintenance_needed() is False

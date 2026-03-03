@@ -7,17 +7,20 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
-from tlvflow.api.routes import router
+from tlvflow.api.routes import router as api_router
 from tlvflow.logging import setup_logging
 from tlvflow.persistence.in_memory import StationRepository, VehicleRepository
+from tlvflow.persistence.state_store import StateStore
+from tlvflow.persistence.users_repository import UsersRepository
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
-# Path to vehicles.csv relative to project root
+# Paths relative to project root
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 VEHICLES_CSV = PROJECT_ROOT / "data" / "vehicles.csv"
 STATIONS_CSV = PROJECT_ROOT / "data" / "stations.csv"
+STATE_JSON = PROJECT_ROOT / "data" / "state.json"
 
 
 @asynccontextmanager
@@ -25,18 +28,42 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan handler for startup/shutdown events."""
     logger.info("Application starting")
 
-    vehicle_repo = VehicleRepository()
-    count = vehicle_repo.load_from_csv(VEHICLES_CSV)
-    app.state.vehicle_repository = vehicle_repo
-    logger.info("Loaded %d vehicles into memory", count)
+    state_store = StateStore(path=STATE_JSON)
+    snapshot = state_store.load()
 
+    vehicle_repo = VehicleRepository()
     station_repo = StationRepository()
-    station_count = station_repo.load_from_csv(STATIONS_CSV)
+    users_repo = UsersRepository()
+
+    if snapshot:
+        logger.info("Loading application state from %s", STATE_JSON)
+        vehicle_repo.restore(snapshot.get("vehicles", {}))
+        station_repo.restore(snapshot.get("stations", {}), vehicle_repo=vehicle_repo)
+        users_repo.restore(snapshot.get("users", {}))
+    else:
+        vehicle_count = vehicle_repo.load_from_csv(VEHICLES_CSV)
+        logger.info("Loaded %d vehicles into memory", vehicle_count)
+
+        station_count = station_repo.load_from_csv(STATIONS_CSV)
+        logger.info("Loaded %d stations into memory", station_count)
+
+    app.state.vehicle_repository = vehicle_repo
     app.state.station_repository = station_repo
-    logger.info("Loaded %d stations into memory", station_count)
-    yield
-    logger.info("Application shutting down")
+    app.state.users_repository = users_repo
+    app.state.state_store = state_store
+
+    try:
+        yield
+    finally:
+        logger.info("Application shutting down; saving state to %s", STATE_JSON)
+        state_store.save(
+            {
+                "vehicles": vehicle_repo.snapshot(),
+                "stations": station_repo.snapshot(),
+                "users": users_repo.snapshot(),
+            }
+        )
 
 
 app = FastAPI(title="TLVFlow API", lifespan=lifespan)
-app.include_router(router)
+app.include_router(api_router)

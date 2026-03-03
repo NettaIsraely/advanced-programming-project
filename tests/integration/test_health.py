@@ -1,3 +1,5 @@
+"""Integration tests for the health endpoint."""
+
 from fastapi.testclient import TestClient
 
 from tlvflow.api.app import app
