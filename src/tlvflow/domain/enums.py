@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class VehicleStatus(Enum):
     """Enumeration for vehicle status."""
 
@@ -8,6 +9,7 @@ class VehicleStatus(Enum):
     AWAITING_REPORT_REVIEW = "awaiting_report_review"
     DEGRADED = "degraded"
 
+
 class ReportStatus(Enum):
     """Enumeration for vehicle report status."""
 
@@ -15,6 +17,7 @@ class ReportStatus(Enum):
     UNDER_REVIEW = "under_review"
     VERIFIED = "verified"
     REJECTED = "rejected"
+
 
 class RideStatus(Enum):
     """Enumeration for ride status."""

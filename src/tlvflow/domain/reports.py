@@ -18,7 +18,7 @@ class VehicleReport:
         self._report_id: str = uuid4().hex
         self._user_id: str = user_id
         self._vehicle_id: str = vehicle_id
-        
+
         # Private attributes
         self.__submission_time: datetime = submission_time
         self.__image_url: str = image_url
@@ -29,24 +29,23 @@ class VehicleReport:
         self.__status = ReportStatus.UNDER_REVIEW
         # As we do not have the tools to review the photo and analyze a vehicle's damage, a mock of such a test's result is used.
         mock_ai_validation_result = True
-        
+
         # Review for a valid image URL structure
-        img_url_pattern = r'^https?://.*\.(?:png|jpg|jpeg|gif|bmp)$'
-        
+        img_url_pattern = r"^https?://.*\.(?:png|jpg|jpeg|gif|bmp)$"
+
         if (
             re.match(img_url_pattern, self.__image_url, re.IGNORECASE) is None
             or not mock_ai_validation_result
         ):
             self.__status = ReportStatus.REJECTED
             return False
-            
+
         self.__status = ReportStatus.VERIFIED
         return True
 
-    def submit_report(self):
+    def submit_report(self) -> None:
         self.__status = ReportStatus.SUBMITTED
 
-    def _create_maintenance_event(self):
+    def _create_maintenance_event(self) -> None:
         # TODO: Implement after creating maintenance event class
         pass
-    
