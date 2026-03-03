@@ -26,6 +26,7 @@ class VehicleReport:
         self.__status: ReportStatus = ReportStatus.SUBMITTED
 
     def verify_damage(self) -> bool:
+        self.__status = ReportStatus.UNDER_REVIEW
         # As we do not have the tools to review the photo and analyze a vehicle's damage, a mock of such a test's result is used.
         mock_ai_validation_result = True
         

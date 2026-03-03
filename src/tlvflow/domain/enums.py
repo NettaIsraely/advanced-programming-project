@@ -12,6 +12,6 @@ class VehicleStatus(Enum):
 class ReportStatus(Enum):
     """Enumeration for vehicle report status."""
     SUBMITTED = "submitted"
-    IN_USE = "in_use"
+    UNDER_REVIEW = "under_review"
     VERIFIED = "verified"
     REJECTED = "rejected"
