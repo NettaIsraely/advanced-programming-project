@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from tlvflow.domain.rides import Ride
 from tlvflow.domain.users import User
 
 
@@ -23,3 +24,11 @@ class ActiveUsersRepositoryProtocol(Protocol):
     def clear(self, user_id: str) -> None: ...
 
     def get_active_user_ids(self) -> list[str]: ...
+
+
+class RidesRepositoryProtocol(Protocol):
+    def get_by_id(self, ride_id: str) -> Ride | None: ...
+
+    def get_by_user_id(self, user_id: str) -> list[Ride]: ...
+
+    def add(self, ride: Ride) -> None: ...
