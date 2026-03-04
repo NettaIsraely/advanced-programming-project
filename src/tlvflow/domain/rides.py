@@ -75,6 +75,50 @@ class Ride:
             RideStatus.COMPLETED if self.__end_time is not None else RideStatus.ACTIVE
         )
 
+    @property
+    def ride_id(self) -> str:
+        return self._ride_id
+
+    @property
+    def user_id(self) -> str:
+        return self._user_id
+
+    @property
+    def vehicle_id(self) -> str:
+        return self._vehicle_id
+
+    @property
+    def start_time(self) -> datetime:
+        return self.__start_time
+
+    @property
+    def end_time(self) -> datetime | None:
+        return self.__end_time
+
+    @property
+    def start_latitude(self) -> float:
+        return self.__start_latitude
+
+    @property
+    def start_longitude(self) -> float:
+        return self.__start_longitude
+
+    @property
+    def end_latitude(self) -> float:
+        return self.__end_latitude
+
+    @property
+    def end_longitude(self) -> float:
+        return self.__end_longitude
+
+    @property
+    def distance(self) -> float:
+        return self.__distance
+
+    @property
+    def fee(self) -> float:
+        return self.__fee
+
     def calculate_fee(self, duration: float, distance: float) -> float:
         """Calculate the ride fee from duration and distance. Returns the fee amount."""
         # Placeholder: override or extend for real pricing logic
