@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from tlvflow.domain.users import AmateurUser, User
+from tlvflow.persistence.active_users_repository import ActiveUsersRepository
 from tlvflow.persistence.users_repository import UsersRepository
 
 
@@ -25,10 +26,16 @@ def register_user(
     return user.user_id
 
 
-def get_active_users(repo: UsersRepository) -> list[dict[str, Any]]:
-    return [
-        _user_to_dict(user) for user in repo.get_all() if user.current_ride is not None
-    ]
+def get_active_users(
+    active_users_repo: ActiveUsersRepository,
+    users_repo: UsersRepository,
+) -> list[dict[str, Any]]:
+    result = []
+    for user_id in active_users_repo.get_active_user_ids():
+        user = users_repo.get_by_id(user_id)
+        if user is not None:
+            result.append(_user_to_dict(user))
+    return result
 
 
 def _user_to_dict(user: User) -> dict[str, Any]:
