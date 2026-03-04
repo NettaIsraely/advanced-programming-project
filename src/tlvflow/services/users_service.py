@@ -27,9 +27,7 @@ def register_user(
 
 def get_active_users(repo: UsersRepository) -> list[dict[str, Any]]:
     return [
-        _user_to_dict(user)
-        for user in repo.get_all()
-        if user.current_ride is not None
+        _user_to_dict(user) for user in repo.get_all() if user.current_ride is not None
     ]
 
 
