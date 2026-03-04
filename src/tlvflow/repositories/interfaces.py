@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from tlvflow.domain.maintenance_event import MaintenanceEvent
 from tlvflow.domain.rides import Ride
 from tlvflow.domain.users import User
 
@@ -32,3 +33,13 @@ class RidesRepositoryProtocol(Protocol):
     def get_by_user_id(self, user_id: str) -> list[Ride]: ...
 
     def add(self, ride: Ride) -> None: ...
+
+
+class MaintenanceRepositoryProtocol(Protocol):
+    def add(self, event: MaintenanceEvent) -> None: ...
+
+    def get_by_id(self, event_id: str) -> MaintenanceEvent | None: ...
+
+    def get_all(self) -> list[MaintenanceEvent]: ...
+
+    def get_by_vehicle_id(self, vehicle_id: str) -> list[MaintenanceEvent]: ...

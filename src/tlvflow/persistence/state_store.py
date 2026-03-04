@@ -47,5 +47,6 @@ class StateStore:
             newline="\n",
         ) as tmp:
             json.dump(snapshot, tmp, ensure_ascii=False)
-            tmp.flush()
-            Path(tmp.name).replace(self.path)
+            tmp_path = Path(tmp.name)
+
+        tmp_path.replace(self.path)

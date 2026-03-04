@@ -38,3 +38,6 @@ Thumbs.db
 # === Env / secrets ===
 .env
 .env.*
+
+# === Claude CLI local settings ===
+.claude/
