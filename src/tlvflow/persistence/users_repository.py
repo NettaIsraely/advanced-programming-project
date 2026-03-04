@@ -24,6 +24,9 @@ class UsersRepository:
             return None
         return self._users_by_id.get(user_id)
 
+    def get_all(self) -> list[User]:
+        return list(self._users_by_id.values())
+
     def add(self, user: User) -> None:
         self._users_by_id[user.user_id] = user
         self._user_id_by_email[user.email] = user.user_id
