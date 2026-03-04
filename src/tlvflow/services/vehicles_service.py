@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import random
+from datetime import datetime
 
 from tlvflow.domain.enums import VehicleStatus
+from tlvflow.domain.maintenance_event import MaintenanceEvent
 from tlvflow.persistence.in_memory import StationRepository, VehicleRepository
+from tlvflow.repositories.interfaces import MaintenanceRepositoryProtocol
 
 
 def treat_vehicles(
     vehicles_repo: VehicleRepository,
     stations_repo: StationRepository,
+    maintenance_repo: MaintenanceRepositoryProtocol,
 ) -> list[str]:
     treated_ids: list[str] = []
 
@@ -21,6 +25,14 @@ def treat_vehicles(
 
         vehicle.complete_maintenance()
         vehicle.set_status(VehicleStatus.AVAILABLE)
+
+        event = MaintenanceEvent(
+            vehicle_id=vehicle._vehicle_id,
+            report_id="",
+            open_time=datetime.now(),
+        )
+        event.close_event()
+        maintenance_repo.add(event)
 
         if is_degraded:
             all_stations = stations_repo.get_all()
