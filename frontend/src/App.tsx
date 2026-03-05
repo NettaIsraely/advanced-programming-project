@@ -1,8 +1,11 @@
 function App() {
   return (
-    <div>
-      <h1>TLVFlow</h1>
-    </div>
+    <main className="app">
+      <div className="card app-card">
+        <h1 className="app-title">TLVFlow</h1>
+        <p className="app-tagline">Vehicle management</p>
+      </div>
+    </main>
   );
 }
 
