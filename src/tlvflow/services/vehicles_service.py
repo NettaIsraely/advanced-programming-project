@@ -23,12 +23,16 @@ def treat_vehicles(
         if not is_degraded and not is_high_ride:
             continue
 
-        vehicle.complete_maintenance()
-        vehicle.set_status(VehicleStatus.AVAILABLE)
+        # שולפים את מזהה הדיווח אם הרכב פגום (לפני שמאפסים לו את הסטטוס)
+        report_id = (
+            getattr(vehicle, "report_id", getattr(vehicle, "_report_id", ""))
+            if is_degraded
+            else ""
+        )
 
         event = MaintenanceEvent(
             vehicle_id=vehicle._vehicle_id,
-            report_id="",
+            report_id=report_id,
             open_time=datetime.now(),
         )
         event.close_event()
@@ -52,6 +56,10 @@ def treat_vehicles(
                 if current_station is not None:
                     current_station.undock(vehicle)
                 new_station.dock(vehicle)
+
+        # הורדנו את עדכון הסטטוס למטה לפי דרישת ה-PR
+        vehicle.complete_maintenance()
+        vehicle.set_status(VehicleStatus.AVAILABLE)
 
         treated_ids.append(vehicle._vehicle_id)
 
