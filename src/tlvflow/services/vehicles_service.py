@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import random
-from datetime import datetime
+from datetime import UTC, datetime
 
 from tlvflow.domain.enums import VehicleStatus
 from tlvflow.domain.maintenance_event import MaintenanceEvent
@@ -23,7 +23,7 @@ def treat_vehicles(
         if not is_degraded and not is_high_ride:
             continue
 
-        # שולפים את מזהה הדיווח אם הרכב פגום (לפני שמאפסים לו את הסטטוס)
+        # Retrieve the report_id if the vehicle is degraded (before resetting its status)
         report_id = (
             getattr(vehicle, "report_id", getattr(vehicle, "_report_id", ""))
             if is_degraded
@@ -33,7 +33,7 @@ def treat_vehicles(
         event = MaintenanceEvent(
             vehicle_id=vehicle._vehicle_id,
             report_id=report_id,
-            open_time=datetime.now(),
+            open_time=datetime.now(UTC),
         )
         event.close_event()
         maintenance_repo.add(event)
@@ -57,7 +57,7 @@ def treat_vehicles(
                     current_station.undock(vehicle)
                 new_station.dock(vehicle)
 
-        # הורדנו את עדכון הסטטוס למטה לפי דרישת ה-PR
+        # Defer status update to the end per PR review
         vehicle.complete_maintenance()
         vehicle.set_status(VehicleStatus.AVAILABLE)
 
