@@ -34,5 +34,5 @@ jobs:
         run: mypy src/
 
       - name: Run tests
-        run: pytest tests/ -v
+        run: pytest tests/ -v --cov=src/tlvflow --cov-report=term-missing --cov-fail-under=80
 
