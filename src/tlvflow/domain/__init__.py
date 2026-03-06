@@ -1,3 +1,4 @@
+from .payment import Payment
 from .rides import Ride
 from .stations import Station
 from .users import AmateurUser, ProUser, User
@@ -13,4 +14,5 @@ __all__ = [
     "Scooter",
     "Station",
     "Ride",
+    "Payment",
 ]
