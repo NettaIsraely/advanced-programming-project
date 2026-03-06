@@ -5,6 +5,7 @@ from typing import Protocol
 from tlvflow.domain.maintenance_event import MaintenanceEvent
 from tlvflow.domain.rides import Ride
 from tlvflow.domain.users import User
+from tlvflow.domain.vehicles import Vehicle
 
 
 class UsersRepositoryProtocol(Protocol):
@@ -43,3 +44,15 @@ class MaintenanceRepositoryProtocol(Protocol):
     def get_all(self) -> list[MaintenanceEvent]: ...
 
     def get_by_vehicle_id(self, vehicle_id: str) -> list[MaintenanceEvent]: ...
+
+
+class DegradedVehiclesRepositoryProtocol(Protocol):
+    def add(self, vehicle: Vehicle) -> None: ...
+
+    def remove(self, vehicle_id: str) -> Vehicle | None: ...
+
+    def get_all(self) -> list[Vehicle]: ...
+
+    def get_by_id(self, vehicle_id: str) -> Vehicle | None: ...
+
+    def clear(self) -> None: ...
