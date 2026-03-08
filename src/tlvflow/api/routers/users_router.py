@@ -22,7 +22,7 @@ class RegisterRequest(BaseModel):  # type: ignore[misc]
 
 @router.post("/register")  # type: ignore[misc]
 async def register(request: Request, body: RegisterRequest) -> JSONResponse:
-    """Register a new AmateurUser and return their generated user_id."""
+    """Register a new user and return their generated user_id."""
     repo = getattr(request.app.state, "users_repository", None)
     if repo is None or not isinstance(repo, UsersRepository):
         logger.error("users_repository not initialized on app.state")

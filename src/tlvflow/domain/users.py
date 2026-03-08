@@ -14,9 +14,9 @@ _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 class User:
-    """Base user in the system.
+    """Default user in the system.
 
-    Users are split into Pro and Amateur accounts. Amateur users can ride
+    Users are split into regular and Pro accounts. Regular users can ride
     non-electric vehicles (bikes), while Pro users can ride any vehicle.
     """
 
@@ -94,6 +94,7 @@ class User:
     # ----------------------------
     def start_ride(self, vehicle_id: str) -> None:
         """Mark that the user started a ride with the given vehicle.
+
         Enforces the rule: a user cannot be on more than one active ride.
         The service layer should attach the Ride object via set_current_ride()
         after creating it.
@@ -140,11 +141,15 @@ class User:
             payload["description"] = description
         return payload
 
+    def validate_license(self) -> bool:
+        """Regular users have no license to validate; always True."""
+        return True
+
     # ----------------------------
     # Permissions
     # ----------------------------
     def can_rent(self, vehicle: "Vehicle") -> bool:
-        """Amateur default: only non-electric bikes."""
+        """Regular default: only non-electric bikes."""
         return not vehicle.is_electric
 
     # ----------------------------
@@ -334,11 +339,3 @@ class ProUser(User):
         if not isinstance(license_expiry, datetime):
             raise ValueError("license_expiry must be a datetime")
         return license_expiry
-
-
-class AmateurUser(User):
-    """Default user type (bike-only)."""
-
-    def validate_license(self) -> bool:
-        """Amateurs have no license to validate; always True (diagram)."""
-        return True

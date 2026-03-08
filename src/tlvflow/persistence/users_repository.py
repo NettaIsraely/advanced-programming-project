@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from tlvflow.domain.users import AmateurUser, ProUser, User
+from tlvflow.domain.users import ProUser, User
 
 
 class UsersRepository:
@@ -58,10 +58,6 @@ def _user_to_dict(user: User) -> dict[str, Any]:
         base["license_expiry"] = user._license_expiry.isoformat()
         return base
 
-    if isinstance(user, AmateurUser):
-        base["user_type"] = "amateur"
-        return base
-
     base["user_type"] = "user"
     return base
 
@@ -87,15 +83,6 @@ def _user_from_dict(data: dict[str, Any]) -> User:
             payment_method_id=payment_method_id,
             license_number=license_number,
             license_expiry=license_expiry,
-        )
-
-    if user_type == "amateur":
-        return AmateurUser(
-            user_id=user_id,
-            name=name,
-            email=email,
-            password_hash=password_hash,
-            payment_method_id=payment_method_id,
         )
 
     return User(
