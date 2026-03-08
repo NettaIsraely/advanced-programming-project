@@ -76,5 +76,5 @@ def restore_degraded(
         sid = vehicle.station_id
         if sid is not None:
             station = station_repo.get_by_id(sid)
-            if station is not None:
+            if station is not None and vehicle in station.vehicles:
                 station.undock(vehicle)

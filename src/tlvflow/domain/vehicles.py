@@ -128,6 +128,11 @@ class Vehicle(ABC):
         """Station id when docked, or None when not at a station. Set/cleared by Station.dock/undock."""
         return self._station_id
 
+    @property
+    def vehicle_id(self) -> str:
+        """Unique identifier for the vehicle."""
+        return self._vehicle_id
+
 
 class Bike(Vehicle):
     """Bike subclass representing a regular bicycle."""
