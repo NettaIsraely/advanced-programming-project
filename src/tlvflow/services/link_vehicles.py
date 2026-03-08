@@ -34,6 +34,9 @@ def link_vehicles_to_stations(
     for vehicle in vehicle_repo.get_all():
         if vehicle.check_status() == VehicleStatus.DEGRADED:
             degraded_repo.add(vehicle)
+            vehicle._station_id = (
+                None  # degraded = not at a station; avoid undock in restore_degraded
+            )
             continue
         sid = vehicle.station_id
         if sid is None:
