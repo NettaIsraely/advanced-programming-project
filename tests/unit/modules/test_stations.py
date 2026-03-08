@@ -1,6 +1,8 @@
 import pytest
 
+from tlvflow.domain.enums import VehicleStatus
 from tlvflow.domain.stations import Station
+from tlvflow.domain.vehicles import Bike
 
 
 class DummyVehicle:
@@ -150,6 +152,19 @@ def test_undock_missing_vehicle_raises():
     station = make_station(capacity=2)
     with pytest.raises(ValueError, match="vehicle is not in this station"):
         station.undock(DummyVehicle())
+
+
+def test_dock_and_undock_set_and_clear_vehicle_station_id():
+    """Vehicle.station_id is set by dock and cleared by undock (O(1) lookup)."""
+    bike = Bike("v1", "F1", status=VehicleStatus.AVAILABLE)
+    assert bike.station_id is None
+
+    station = Station(1, "Central", 32.0, 34.8, capacity=2)
+    station.dock(bike)
+    assert bike.station_id == 1
+
+    station.undock(bike)
+    assert bike.station_id is None
 
 
 def test_simple_properties_are_exposed():

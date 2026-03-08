@@ -18,6 +18,7 @@ from tlvflow.persistence.maintenance_repository import MaintenanceRepository
 from tlvflow.persistence.rides_repository import RidesRepository
 from tlvflow.persistence.state_store import StateStore
 from tlvflow.persistence.users_repository import UsersRepository
+from tlvflow.services.degraded_vehicles_service import restore_degraded
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -44,10 +45,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     rides_repo = RidesRepository()
     maintenance_repo = MaintenanceRepository()
 
-    degraded_vehicles_repo = DegradedVehiclesRepository(
-        station_repo=station_repo,
-        vehicle_repo=vehicle_repo,
-    )
+    degraded_vehicles_repo = DegradedVehiclesRepository()
 
     if snapshot:
         logger.info("Loading application state from %s", STATE_JSON)
@@ -57,7 +55,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         active_users_repo.restore(snapshot.get("active_users", {}))
         rides_repo.restore(snapshot.get("rides", {}))
         maintenance_repo.restore(snapshot.get("maintenance", {}))
-        degraded_vehicles_repo.restore(snapshot.get("degraded_vehicles", {}))
+        restore_degraded(
+            station_repo,
+            vehicle_repo,
+            degraded_vehicles_repo,
+            snapshot.get("degraded_vehicles", {}),
+        )
     else:
         vehicle_count = vehicle_repo.load_from_csv(VEHICLES_CSV)
         logger.info("Loaded %d vehicles into memory", vehicle_count)
