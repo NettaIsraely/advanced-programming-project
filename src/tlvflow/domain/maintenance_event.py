@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from tlvflow.domain.enums import EventStatus
@@ -26,4 +26,4 @@ class MaintenanceEvent:
         Public method to close the maintenance event.
         """
         self.__status = EventStatus.CLOSED
-        self._closed_time = datetime.now()
+        self._closed_time = datetime.now(UTC)
