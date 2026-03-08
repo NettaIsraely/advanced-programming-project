@@ -155,6 +155,8 @@ def load_vehicles_from_csv(path: str | Path) -> list[Vehicle]:
                 vehicle.rides_since_last_treated = rides_since
                 last_treated = _parse_date(row.get(LAST_TREATED_DATE, ""))
                 vehicle._last_treated_date = last_treated
+                raw_station_id = row.get(STATION_ID, "").strip()
+                vehicle._station_id = int(raw_station_id) if raw_station_id else None
                 vehicles.append(vehicle)
 
             except (ValueError, KeyError) as e:
