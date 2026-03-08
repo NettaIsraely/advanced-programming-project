@@ -1,6 +1,6 @@
 """Unit tests for MaintenanceRepository."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from tlvflow.domain.maintenance_event import MaintenanceEvent
 from tlvflow.persistence.maintenance_repository import MaintenanceRepository
@@ -8,7 +8,9 @@ from tlvflow.persistence.maintenance_repository import MaintenanceRepository
 
 def test_add_and_retrieve_by_id() -> None:
     repo = MaintenanceRepository()
-    event = MaintenanceEvent(vehicle_id="v1", report_id="r1", open_time=datetime.now())
+    event = MaintenanceEvent(
+        vehicle_id="v1", report_id="r1", open_time=datetime.now(UTC)
+    )
 
     repo.add(event)
 
@@ -18,7 +20,7 @@ def test_add_and_retrieve_by_id() -> None:
 
 def test_get_by_vehicle_id_filters_correctly() -> None:
     repo = MaintenanceRepository()
-    now = datetime.now()
+    now = datetime.now(UTC)
     e1 = MaintenanceEvent(vehicle_id="v1", report_id="r1", open_time=now)
     e2 = MaintenanceEvent(vehicle_id="v2", report_id="r2", open_time=now)
     e3 = MaintenanceEvent(vehicle_id="v1", report_id="r3", open_time=now)
@@ -39,7 +41,7 @@ def test_get_by_vehicle_id_filters_correctly() -> None:
 
 def test_snapshot_and_restore_round_trip() -> None:
     repo = MaintenanceRepository()
-    now = datetime.now()
+    now = datetime.now(UTC)
 
     open_event = MaintenanceEvent(vehicle_id="v1", report_id="r1", open_time=now)
     closed_event = MaintenanceEvent(vehicle_id="v1", report_id="r2", open_time=now)

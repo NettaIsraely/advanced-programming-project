@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from tlvflow.domain.enums import PaymentKind
@@ -38,7 +38,7 @@ class Payment:
             email.strip() if isinstance(email, str) and email.strip() else None
         )
         self._kind = kind
-        self._created_at = created_at or datetime.now()
+        self._created_at = created_at or datetime.now(UTC)
 
     @staticmethod
     def _validate_ride_id(ride_id: str) -> str:
