@@ -15,6 +15,7 @@ from tlvflow.persistence.degraded_vehicles_repository import (
 )
 from tlvflow.persistence.in_memory import StationRepository, VehicleRepository
 from tlvflow.persistence.maintenance_repository import MaintenanceRepository
+from tlvflow.persistence.payments_repository import PaymentsRepository
 from tlvflow.persistence.rides_repository import RidesRepository
 from tlvflow.persistence.state_store import StateStore
 from tlvflow.persistence.users_repository import UsersRepository
@@ -44,6 +45,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     active_users_repo = ActiveUsersRepository()
     rides_repo = RidesRepository()
     maintenance_repo = MaintenanceRepository()
+    payments_repo = PaymentsRepository()
 
     degraded_vehicles_repo = DegradedVehiclesRepository()
 
@@ -55,6 +57,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         active_users_repo.restore(snapshot.get("active_users", {}))
         rides_repo.restore(snapshot.get("rides", {}))
         maintenance_repo.restore(snapshot.get("maintenance", {}))
+        payments_repo.restore(snapshot.get("payments", {}))
         restore_degraded(
             station_repo,
             vehicle_repo,
@@ -75,6 +78,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.state_store = state_store
     app.state.rides_repository = rides_repo
     app.state.maintenance_repository = maintenance_repo
+    app.state.payments_repository = payments_repo
     app.state.degraded_vehicles_repository = degraded_vehicles_repo
 
     try:
@@ -89,6 +93,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 "active_users": active_users_repo.snapshot(),
                 "rides": rides_repo.snapshot(),
                 "maintenance": maintenance_repo.snapshot(),
+                "payments": payments_repo.snapshot(),
                 "degraded_vehicles": degraded_vehicles_repo.snapshot(),
             }
         )
