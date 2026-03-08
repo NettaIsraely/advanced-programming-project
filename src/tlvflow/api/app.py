@@ -10,12 +10,16 @@ from fastapi import FastAPI
 from tlvflow.api.routes import router as api_router
 from tlvflow.logging import setup_logging
 from tlvflow.persistence.active_users_repository import ActiveUsersRepository
+from tlvflow.persistence.degraded_vehicles_repository import (
+    DegradedVehiclesRepository,
+)
 from tlvflow.persistence.in_memory import StationRepository, VehicleRepository
 from tlvflow.persistence.maintenance_repository import MaintenanceRepository
 from tlvflow.persistence.payments_repository import PaymentsRepository
 from tlvflow.persistence.rides_repository import RidesRepository
 from tlvflow.persistence.state_store import StateStore
 from tlvflow.persistence.users_repository import UsersRepository
+from tlvflow.services.degraded_vehicles_service import restore_degraded
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -43,6 +47,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     maintenance_repo = MaintenanceRepository()
     payments_repo = PaymentsRepository()
 
+    degraded_vehicles_repo = DegradedVehiclesRepository()
+
     if snapshot:
         logger.info("Loading application state from %s", STATE_JSON)
         vehicle_repo.restore(snapshot.get("vehicles", {}))
@@ -52,6 +58,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         rides_repo.restore(snapshot.get("rides", {}))
         maintenance_repo.restore(snapshot.get("maintenance", {}))
         payments_repo.restore(snapshot.get("payments", {}))
+        restore_degraded(
+            station_repo,
+            vehicle_repo,
+            degraded_vehicles_repo,
+            snapshot.get("degraded_vehicles", {}),
+        )
     else:
         vehicle_count = vehicle_repo.load_from_csv(VEHICLES_CSV)
         logger.info("Loaded %d vehicles into memory", vehicle_count)
@@ -67,6 +79,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.rides_repository = rides_repo
     app.state.maintenance_repository = maintenance_repo
     app.state.payments_repository = payments_repo
+    app.state.degraded_vehicles_repository = degraded_vehicles_repo
 
     try:
         yield
@@ -81,6 +94,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 "rides": rides_repo.snapshot(),
                 "maintenance": maintenance_repo.snapshot(),
                 "payments": payments_repo.snapshot(),
+                "degraded_vehicles": degraded_vehicles_repo.snapshot(),
             }
         )
 

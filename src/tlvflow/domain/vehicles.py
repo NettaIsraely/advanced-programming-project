@@ -22,6 +22,9 @@ class Vehicle(ABC):
     # Protected: last treatment date (None if never treated)
     _last_treated_date: date | None
 
+    # Protected: station id when docked (None when not at a station)
+    _station_id: int | None
+
     # Property
     @property
     def is_electric(self) -> bool:
@@ -51,6 +54,7 @@ class Vehicle(ABC):
         self.__status = status
         self.rides_since_last_treated = rides_since_last_treated
         self.has_helmet = False
+        self._station_id = None
         if last_treated_date is None:
             self._last_treated_date = None
         elif isinstance(last_treated_date, datetime):
@@ -118,6 +122,11 @@ class Vehicle(ABC):
     def last_treated_date(self) -> date | None:
         """Return the date of last treatment, or None if never treated."""
         return self._last_treated_date
+
+    @property
+    def station_id(self) -> int | None:
+        """Station id when docked, or None when not at a station. Set/cleared by Station.dock/undock."""
+        return self._station_id
 
 
 class Bike(Vehicle):
