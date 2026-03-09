@@ -142,7 +142,10 @@ class User:
         return payload
 
     def validate_license(self) -> bool:
-        """Regular users have no license to validate; always True."""
+        """
+        Base users have no license requirement — always passes.
+        ProUser overrides this with actual license validation.
+        """
         return True
 
     # ----------------------------
