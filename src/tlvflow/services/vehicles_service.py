@@ -5,7 +5,6 @@ from datetime import UTC, datetime
 
 from tlvflow.domain.enums import VehicleStatus
 from tlvflow.domain.maintenance_event import MaintenanceEvent
-from tlvflow.persistence.degraded_vehicles_repository import DegradedVehiclesRepository
 from tlvflow.persistence.in_memory import StationRepository, VehicleRepository
 from tlvflow.repositories.interfaces import MaintenanceRepositoryProtocol
 
@@ -14,23 +13,15 @@ def treat_vehicles(
     vehicles_repo: VehicleRepository,
     stations_repo: StationRepository,
     maintenance_repo: MaintenanceRepositoryProtocol,
-    degraded_repo: DegradedVehiclesRepository,
 ) -> list[str]:
     treated_ids: list[str] = []
 
-    degraded_vehicles = degraded_repo.get_all()
-    degraded_ids = {v._vehicle_id for v in degraded_vehicles}
+    for vehicle in vehicles_repo.get_all():
+        is_degraded = vehicle.check_status() == VehicleStatus.DEGRADED
+        is_high_ride = vehicle.is_treatment_eligible()
 
-    high_ride_vehicles = [
-        v
-        for v in vehicles_repo.get_all()
-        if v.is_treatment_eligible() and v._vehicle_id not in degraded_ids
-    ]
-
-    vehicles_to_treat = degraded_vehicles + high_ride_vehicles
-
-    for vehicle in vehicles_to_treat:
-        is_degraded = vehicle._vehicle_id in degraded_ids
+        if not is_degraded and not is_high_ride:
+            continue
 
         # Retrieve the report_id if the vehicle is degraded (before resetting its status)
         report_id = (
@@ -65,8 +56,6 @@ def treat_vehicles(
                 if current_station is not None:
                     current_station.undock(vehicle)
                 new_station.dock(vehicle)
-
-            degraded_repo.remove(vehicle._vehicle_id)
 
         # Defer status update to the end per PR review
         vehicle.complete_maintenance()

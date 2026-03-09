@@ -3,7 +3,6 @@ import logging
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from tlvflow.persistence.degraded_vehicles_repository import DegradedVehiclesRepository
 from tlvflow.persistence.in_memory import StationRepository, VehicleRepository
 from tlvflow.persistence.maintenance_repository import MaintenanceRepository
 from tlvflow.services.vehicles_service import treat_vehicles
@@ -43,17 +42,5 @@ async def treat(request: Request) -> JSONResponse:
             content={"detail": "Maintenance repository not initialized"},
         )
 
-    degraded_repo = getattr(request.app.state, "degraded_vehicles_repository", None)
-    if degraded_repo is None or not isinstance(
-        degraded_repo, DegradedVehiclesRepository
-    ):
-        logger.error("degraded_vehicles_repository not initialized on app.state")
-        return JSONResponse(
-            status_code=500,
-            content={"detail": "Degraded vehicles repository not initialized"},
-        )
-
-    treated_ids = treat_vehicles(
-        vehicles_repo, stations_repo, maintenance_repo, degraded_repo
-    )
+    treated_ids = treat_vehicles(vehicles_repo, stations_repo, maintenance_repo)
     return JSONResponse(content={"treated_vehicles": treated_ids})
