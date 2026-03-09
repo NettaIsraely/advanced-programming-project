@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from tlvflow.domain.users import AmateurUser, ProUser, User
+from tlvflow.domain.users import ProUser, User
 
 
 class DummyVehicle:
@@ -70,6 +70,15 @@ def test_start_ride_sets_current_and_rejects_second_active_ride():
 
     with pytest.raises(ValueError, match="active ride"):
         user.start_ride("v_2")
+
+
+# tests start_ride rejects invalid vehicle_id inputs
+@pytest.mark.parametrize("vehicle_id", ["", "   ", None, 123])  # type: ignore[list-item]
+def test_start_ride_rejects_invalid_vehicle_id(vehicle_id) -> None:
+    user = make_user()
+
+    with pytest.raises(ValueError, match="vehicle_id must be"):
+        user.start_ride(vehicle_id)  # type: ignore[arg-type]
 
 
 # tests end_ride rejects when no active ride
@@ -158,6 +167,12 @@ def test_user_can_rent_non_electric_only():
     assert user.can_rent(DummyVehicle(is_electric=True)) is False
 
 
+# tests regular User.validate_license always returns True
+def test_user_validate_license_always_true():
+    user = make_user()
+    assert user.validate_license() is True
+
+
 # tests ProUser.register requires license_number and license_expiry
 def test_prouser_register_requires_license_fields():
     with pytest.raises(ValueError, match="license_number is required"):
@@ -214,31 +229,6 @@ def test_license_validators():
         ProUser._validate_license_expiry("2026-01-01")  # type: ignore[arg-type]
 
     assert ProUser._validate_license_number("  123  ") == "123"
-
-
-# tests AmateurUser is a User subtype and inherits behavior
-def test_amateur_user_is_user():
-    user = AmateurUser.register(
-        name="Ana",
-        email="ana@example.com",
-        password="password123",
-        payment_method_id="pm_aaa",
-        user_id="am_1",
-    )
-    assert isinstance(user, User)
-    assert user.can_rent(DummyVehicle(is_electric=False)) is True
-
-
-# tests AmateurUser.validate_license always returns True
-def test_amateur_user_validate_license_always_true():
-    user = AmateurUser.register(
-        name="Ana",
-        email="ana@example.com",
-        password="password123",
-        payment_method_id="pm_aaa",
-        user_id="am_1",
-    )
-    assert user.validate_license() is True
 
 
 # tests validation helpers reject invalid inputs
