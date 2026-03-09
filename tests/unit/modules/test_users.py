@@ -183,10 +183,10 @@ def test_prouser_register_requires_license_fields():
 
 # tests validate_license handles naive datetimes (both now and expiry)
 def test_prouser_validate_license_normalizes_naive_datetimes():
-    expiry_naive = datetime.now() + timedelta(days=1)
+    expiry_naive = datetime.now(UTC) + timedelta(days=1)
     pro = make_prouser(license_expiry=expiry_naive)
 
-    at_naive = datetime.now()
+    at_naive = datetime.now(UTC)
     assert pro.validate_license(at=at_naive) is True
 
 

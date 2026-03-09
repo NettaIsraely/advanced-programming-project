@@ -95,27 +95,13 @@ class StationRepository:
     def restore(
         self, snapshot: dict[str, Any], *, vehicle_repo: VehicleRepository
     ) -> None:
-        """Replace the repository contents from a snapshot."""
+        """Replace the repository contents from a snapshot. Stations are created empty; use link_vehicles_to_stations to dock vehicles."""
         self._stations.clear()
 
-        stations: dict[int, Station] = {}
-        docks: dict[int, list[str]] = {}
-
         for station_id_str, raw in snapshot.items():
-            station, dock_vehicle_ids = _station_from_dict(raw)
+            station, _dock_vehicle_ids = _station_from_dict(raw)
             station_id = int(station_id_str)
-            stations[station_id] = station
-            docks[station_id] = dock_vehicle_ids
-
-        # Dock vehicles after both repos are populated to preserve object identity.
-        for station_id, vehicle_ids in docks.items():
-            station = stations[station_id]
-            for vehicle_id in vehicle_ids:
-                vehicle = vehicle_repo.get_by_id(vehicle_id)
-                if vehicle is not None and not station.is_full:
-                    station.dock(vehicle)
-
-        self._stations = stations
+            self._stations[station_id] = station
 
     def get_all(self) -> list[Station]:
         """Return all stations in memory."""
@@ -146,6 +132,7 @@ def _vehicle_to_dict(vehicle: Vehicle) -> dict[str, Any]:
             else None
         ),
         "has_helmet": bool(vehicle.has_helmet),
+        "station_id": vehicle._station_id,
     }
 
     if isinstance(vehicle, Bike):
@@ -202,6 +189,12 @@ def _vehicle_from_dict(data: dict[str, Any]) -> Vehicle:
         vehicle._last_treated_date = date.fromisoformat(last_treated)
     else:
         vehicle._last_treated_date = None
+
+    sid = data.get("station_id")
+    if sid is not None and isinstance(sid, int):
+        vehicle._station_id = sid
+    else:
+        vehicle._station_id = None
 
     return vehicle
 

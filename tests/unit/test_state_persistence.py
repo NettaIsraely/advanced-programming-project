@@ -6,6 +6,9 @@ import pytest
 from tlvflow.domain.enums import VehicleStatus
 from tlvflow.domain.stations import Station
 from tlvflow.domain.vehicles import Bike, EBike, Vehicle
+from tlvflow.persistence.degraded_vehicles_repository import (
+    DegradedVehiclesRepository,
+)
 from tlvflow.persistence.in_memory import (
     StationRepository,
     VehicleRepository,
@@ -13,6 +16,7 @@ from tlvflow.persistence.in_memory import (
     _vehicle_to_dict,
 )
 from tlvflow.persistence.state_store import StateStore
+from tlvflow.services.link_vehicles import link_vehicles_to_stations
 
 
 def test_state_store_round_trip_persists_vehicle_fields(tmp_path: Path) -> None:
@@ -104,6 +108,10 @@ def test_station_snapshot_round_trip_preserves_docked_vehicle_ids(
     reloaded_vehicle_repo.restore(snapshot["vehicles"])
     reloaded_station_repo.restore(
         snapshot["stations"], vehicle_repo=reloaded_vehicle_repo
+    )
+    degraded_repo = DegradedVehiclesRepository()
+    link_vehicles_to_stations(
+        reloaded_vehicle_repo, reloaded_station_repo, degraded_repo
     )
 
     restored_station = reloaded_station_repo.get_by_id(1)

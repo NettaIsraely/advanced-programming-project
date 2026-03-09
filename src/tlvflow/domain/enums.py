@@ -31,3 +31,11 @@ class EventStatus(Enum):
     OPEN = "open"
     IN_PROGRESS = "in_progress"
     CLOSED = "closed"
+
+
+class PaymentKind(Enum):
+    """Type of payment record."""
+
+    CHARGE = "charge"
+    RECEIPT = "receipt"
+    REFUND = "refund"

@@ -10,11 +10,17 @@ from fastapi import FastAPI
 from tlvflow.api.routes import router as api_router
 from tlvflow.logging import setup_logging
 from tlvflow.persistence.active_users_repository import ActiveUsersRepository
+from tlvflow.persistence.degraded_vehicles_repository import (
+    DegradedVehiclesRepository,
+)
 from tlvflow.persistence.in_memory import StationRepository, VehicleRepository
 from tlvflow.persistence.maintenance_repository import MaintenanceRepository
+from tlvflow.persistence.payments_repository import PaymentsRepository
 from tlvflow.persistence.rides_repository import RidesRepository
 from tlvflow.persistence.state_store import StateStore
 from tlvflow.persistence.users_repository import UsersRepository
+from tlvflow.services.degraded_vehicles_service import restore_degraded
+from tlvflow.services.link_vehicles import link_vehicles_to_stations
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -40,6 +46,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     active_users_repo = ActiveUsersRepository()
     rides_repo = RidesRepository()
     maintenance_repo = MaintenanceRepository()
+    payments_repo = PaymentsRepository()
+
+    degraded_vehicles_repo = DegradedVehiclesRepository()
 
     if snapshot:
         logger.info("Loading application state from %s", STATE_JSON)
@@ -49,12 +58,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         active_users_repo.restore(snapshot.get("active_users", {}))
         rides_repo.restore(snapshot.get("rides", {}))
         maintenance_repo.restore(snapshot.get("maintenance", {}))
+        payments_repo.restore(snapshot.get("payments", {}))
+        link_vehicles_to_stations(vehicle_repo, station_repo, degraded_vehicles_repo)
+        restore_degraded(
+            station_repo,
+            vehicle_repo,
+            degraded_vehicles_repo,
+            snapshot.get("degraded_vehicles", {}),
+        )
     else:
         vehicle_count = vehicle_repo.load_from_csv(VEHICLES_CSV)
         logger.info("Loaded %d vehicles into memory", vehicle_count)
 
         station_count = station_repo.load_from_csv(STATIONS_CSV)
         logger.info("Loaded %d stations into memory", station_count)
+
+        link_vehicles_to_stations(vehicle_repo, station_repo, degraded_vehicles_repo)
 
     app.state.vehicle_repository = vehicle_repo
     app.state.station_repository = station_repo
@@ -63,6 +82,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.state_store = state_store
     app.state.rides_repository = rides_repo
     app.state.maintenance_repository = maintenance_repo
+    app.state.payments_repository = payments_repo
+    app.state.degraded_vehicles_repository = degraded_vehicles_repo
 
     try:
         yield
@@ -76,6 +97,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 "active_users": active_users_repo.snapshot(),
                 "rides": rides_repo.snapshot(),
                 "maintenance": maintenance_repo.snapshot(),
+                "payments": payments_repo.snapshot(),
+                "degraded_vehicles": degraded_vehicles_repo.snapshot(),
             }
         )
 

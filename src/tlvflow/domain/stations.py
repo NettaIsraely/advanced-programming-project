@@ -31,6 +31,8 @@ class Station:
         self._vehicles = list(vehicles) if vehicles else []
         if len(self._vehicles) > self._capacity:
             raise ValueError("initial vehicles cannot exceed capacity")
+        for v in self._vehicles:
+            v._station_id = self._station_id
 
     # properties
     @property
@@ -74,12 +76,14 @@ class Station:
         if self.is_full:
             raise ValueError("station is full")
         self._vehicles.append(vehicle)
+        vehicle._station_id = self._station_id
 
     def undock(self, vehicle: Vehicle) -> None:
         try:
             self._vehicles.remove(vehicle)
         except ValueError as exc:
             raise ValueError("vehicle is not in this station") from exc
+        vehicle._station_id = None
 
     # validation
     @staticmethod

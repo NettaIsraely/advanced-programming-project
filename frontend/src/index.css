@@ -1,0 +1,109 @@
+/* Design system: minimalistic light blue & white */
+:root {
+  /* Palette */
+  --color-bg: #ffffff;
+  --color-text: #1f2937;
+  --color-primary: #60a5fa;
+  --color-primary-hover: #3b82f6;
+  --color-secondary: #bfdbfe;
+  --color-border: #e5e7eb;
+
+  /* Typography */
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+
+  /* Spacing & shape */
+  --radius: 8px;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #ffffff;
+  background-color: var(--color-primary);
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.btn:hover {
+  background-color: var(--color-primary-hover);
+}
+
+/* Cards */
+.card {
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 1.5rem 2rem;
+}
+
+/* Dividers */
+.divider {
+  height: 1px;
+  background-color: var(--color-border);
+  border: none;
+  margin: 0;
+}
+
+/* App layout */
+.app {
+  width: 100%;
+  max-width: 24rem;
+}
+
+.app-card {
+  text-align: center;
+}
+
+.app-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.app-tagline {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-text);
+  opacity: 0.85;
+}
