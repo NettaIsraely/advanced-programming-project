@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from tlvflow.domain.users import AmateurUser, ProUser, User
+from tlvflow.domain.users import ProUser, User
 from tlvflow.persistence.users_repository import (
     UsersRepository,
     _user_from_dict,
@@ -15,7 +15,7 @@ from tlvflow.persistence.users_repository import (
 def test_add_and_get_by_id_and_email() -> None:
     repo = UsersRepository()
 
-    user = AmateurUser.register(
+    user = User.register(
         name=" Alice ",
         email="ALICE@Example.com ",
         password="password123",
@@ -43,13 +43,13 @@ def test_get_by_email_invalid_inputs_return_none() -> None:
 def test_snapshot_and_restore_round_trip_preserves_types_and_indexes() -> None:
     repo = UsersRepository()
 
-    amateur = AmateurUser.register(
-        name="Amateur",
-        email="amateur@example.com",
+    user = User.register(
+        name="User",
+        email="user@example.com",
         password="password123",
-        payment_method_id="pm_a",
+        payment_method_id="pm_u",
     )
-    repo.add(amateur)
+    repo.add(user)
 
     expiry = datetime(2030, 1, 1, tzinfo=UTC)
     pro = ProUser.register(
@@ -67,9 +67,10 @@ def test_snapshot_and_restore_round_trip_preserves_types_and_indexes() -> None:
     restored = UsersRepository()
     restored.restore(snapshot)
 
-    a2 = restored.get_by_id(amateur.user_id)
-    assert isinstance(a2, AmateurUser)
-    assert restored.get_by_email("amateur@example.com") is not None
+    u2 = restored.get_by_id(user.user_id)
+    assert isinstance(u2, User)
+    assert not isinstance(u2, ProUser)
+    assert restored.get_by_email("user@example.com") is not None
 
     p2 = restored.get_by_id(pro.user_id)
     assert isinstance(p2, ProUser)
@@ -82,7 +83,7 @@ def test_snapshot_and_restore_round_trip_preserves_types_and_indexes() -> None:
 def test_restore_clears_previous_state() -> None:
     repo = UsersRepository()
 
-    u1 = AmateurUser.register(
+    u1 = User.register(
         name="U1",
         email="u1@example.com",
         password="password123",
@@ -90,7 +91,7 @@ def test_restore_clears_previous_state() -> None:
     )
     repo.add(u1)
 
-    u2 = AmateurUser.register(
+    u2 = User.register(
         name="U2",
         email="u2@example.com",
         password="password123",
@@ -105,7 +106,7 @@ def test_restore_clears_previous_state() -> None:
     assert repo.get_by_email("u2@example.com") is not None
 
 
-def test_user_to_dict_branches_user_amateur_pro() -> None:
+def test_user_to_dict_branches_user_and_pro() -> None:
     base = User.register(
         name="Base",
         email="base@example.com",
@@ -114,15 +115,6 @@ def test_user_to_dict_branches_user_amateur_pro() -> None:
     )
     base_dict = _user_to_dict(base)
     assert base_dict["user_type"] == "user"
-
-    amateur = AmateurUser.register(
-        name="Am",
-        email="am@example.com",
-        password="password123",
-        payment_method_id="pm_a",
-    )
-    amateur_dict = _user_to_dict(amateur)
-    assert amateur_dict["user_type"] == "amateur"
 
     expiry = datetime(2031, 5, 4, tzinfo=UTC)
     pro = ProUser.register(
@@ -139,7 +131,7 @@ def test_user_to_dict_branches_user_amateur_pro() -> None:
     assert pro_dict["license_expiry"] == expiry.isoformat()
 
 
-def test_user_from_dict_branches_user_amateur_pro_and_default_type() -> None:
+def test_user_from_dict_branches_user_pro_and_default_type() -> None:
     base = User.register(
         name="Base",
         email="base2@example.com",
@@ -149,16 +141,7 @@ def test_user_from_dict_branches_user_amateur_pro_and_default_type() -> None:
     base_data = _user_to_dict(base)
     restored_base = _user_from_dict(base_data)
     assert isinstance(restored_base, User)
-    assert not isinstance(restored_base, AmateurUser | ProUser)
-    amateur = AmateurUser.register(
-        name="Am",
-        email="am2@example.com",
-        password="password123",
-        payment_method_id="pm_a",
-    )
-    amateur_data = _user_to_dict(amateur)
-    restored_amateur = _user_from_dict(amateur_data)
-    assert isinstance(restored_amateur, AmateurUser)
+    assert not isinstance(restored_base, ProUser)
 
     expiry = datetime(2032, 2, 2, tzinfo=UTC)
     pro = ProUser.register(
@@ -180,7 +163,7 @@ def test_user_from_dict_branches_user_amateur_pro_and_default_type() -> None:
     unknown_type["user_type"] = "something-else"
     restored_unknown = _user_from_dict(unknown_type)
     assert isinstance(restored_unknown, User)
-    assert not isinstance(restored_unknown, AmateurUser | ProUser)
+    assert not isinstance(restored_unknown, ProUser)
 
 
 def test_user_from_dict_invalid_pro_license_expiry_raises() -> None:

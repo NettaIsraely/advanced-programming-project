@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from tlvflow.domain.users import AmateurUser, User
+from tlvflow.domain.users import User
 from tlvflow.persistence.active_users_repository import ActiveUsersRepository
 from tlvflow.persistence.users_repository import UsersRepository
 
@@ -16,7 +16,7 @@ def register_user(
 ) -> str:
     if repo.get_by_email(email) is not None:
         raise ValueError("email already registered")
-    user = AmateurUser.register(
+    user = User.register(
         name=name,
         email=email,
         password=password,

@@ -3,13 +3,13 @@
 from fastapi.testclient import TestClient
 
 from tlvflow.api.app import app
-from tlvflow.domain.users import AmateurUser
+from tlvflow.domain.users import User
 from tlvflow.persistence.active_users_repository import ActiveUsersRepository
 from tlvflow.persistence.users_repository import UsersRepository
 
 
 def test_active_users_returns_correct_user_during_active_ride() -> None:
-    user = AmateurUser.register(
+    user = User.register(
         name="Bob",
         email="bob@example.com",
         password="password123",
@@ -39,7 +39,7 @@ def test_active_users_returns_correct_user_during_active_ride() -> None:
 
 
 def test_active_users_returns_empty_list_when_no_active_rides() -> None:
-    user = AmateurUser.register(
+    user = User.register(
         name="Carol",
         email="carol@example.com",
         password="password123",
@@ -60,7 +60,7 @@ def test_active_users_returns_empty_list_when_no_active_rides() -> None:
 
 
 def test_active_users_removes_user_after_ride_ends() -> None:
-    user = AmateurUser.register(
+    user = User.register(
         name="Dan",
         email="dan@example.com",
         password="password123",
