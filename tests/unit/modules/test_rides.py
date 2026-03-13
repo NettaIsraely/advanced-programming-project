@@ -223,7 +223,6 @@ def test_ride_creation_invalid_user_id(user_id: str, msg: str) -> None:
     """Creation rejects empty or whitespace user_id."""
     with pytest.raises(ValueError, match=msg):
         Ride(
-            ride_id="r1",
             user_id=user_id,
             vehicle_id="v1",
             start_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
@@ -241,7 +240,6 @@ def test_ride_creation_invalid_vehicle_id(vehicle_id: str, msg: str) -> None:
     """Creation rejects empty or whitespace vehicle_id."""
     with pytest.raises(ValueError, match=msg):
         Ride(
-            ride_id="r1",
             user_id="u1",
             vehicle_id=vehicle_id,
             start_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
@@ -252,7 +250,6 @@ def test_ride_creation_invalid_start_time_type() -> None:
     """Creation rejects non-datetime start_time."""
     with pytest.raises(ValueError, match="start_time must be a datetime"):
         Ride(
-            ride_id="r1",
             user_id="u1",
             vehicle_id="v1",
             start_time="2026-01-01 12:00:00",  # type: ignore[arg-type]
@@ -270,7 +267,6 @@ def test_ride_creation_invalid_float_field(value: object, name: str) -> None:
     """Creation rejects non-numeric values for float fields."""
     with pytest.raises(ValueError, match=f"{name} must be a number"):
         Ride(
-            ride_id="r1",
             user_id="u1",
             vehicle_id="v1",
             start_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
@@ -300,7 +296,7 @@ def test_ride_status_and_is_active() -> None:
     assert r.status() == RideStatus.COMPLETED
     assert r.is_active() is False
 
-    r2 = make_ride(ride_id="r2")
+    r2 = make_ride()
     r2.cancel()
     assert r2.status() == RideStatus.CANCELLED
     assert r2.is_active() is False
