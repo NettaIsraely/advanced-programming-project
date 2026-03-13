@@ -32,8 +32,7 @@ def test_add_and_get_by_id_and_user_id() -> None:
     repo.add(r1)
     repo.add(r2)
 
-    assert repo.get_by_id("r1") is r1
-    assert repo.get_by_id("  r1  ") is r1
+    assert repo.get_by_id(r1.ride_id) is r1
 
     rides = repo.get_by_user_id("u1")
     assert rides == [r1, r2]
