@@ -1,6 +1,7 @@
 """Ride domain model."""
 
 from datetime import UTC, datetime
+from uuid import uuid4
 
 from tlvflow.domain.enums import RideStatus
 
@@ -26,7 +27,6 @@ class Ride:
 
     def __init__(
         self,
-        ride_id: str,
         user_id: str,
         vehicle_id: str,
         start_time: datetime,
@@ -54,7 +54,7 @@ class Ride:
             distance: Distance travelled
             fee: Ride fee
         """
-        self._ride_id = self._validate_ride_id(ride_id)
+        self._ride_id = uuid4().hex
         self._user_id = self._validate_user_id(user_id)
         self._vehicle_id = self._validate_vehicle_id(vehicle_id)
         self.__start_time = self._validate_datetime(start_time, "start_time")
@@ -168,12 +168,6 @@ class Ride:
     def is_active(self) -> bool:
         """Return True if the ride is in progress (ACTIVE)."""
         return self.__status == RideStatus.ACTIVE
-
-    @staticmethod
-    def _validate_ride_id(ride_id: str) -> str:
-        if not isinstance(ride_id, str) or not ride_id.strip():
-            raise ValueError("ride_id must be a non-empty string")
-        return ride_id.strip()
 
     @staticmethod
     def _validate_user_id(user_id: str) -> str:

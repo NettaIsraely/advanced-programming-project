@@ -64,7 +64,6 @@ def _ride_to_dict(ride: Ride) -> dict[str, Any]:
 
 
 def _ride_from_dict(data: dict[str, Any]) -> Ride:
-    ride_id = str(data["ride_id"])
     user_id = str(data["user_id"])
     vehicle_id = str(data["vehicle_id"])
 
@@ -79,7 +78,6 @@ def _ride_from_dict(data: dict[str, Any]) -> Ride:
         end_time = None
 
     ride = Ride(
-        ride_id=ride_id,
         user_id=user_id,
         vehicle_id=vehicle_id,
         start_time=start_time,
