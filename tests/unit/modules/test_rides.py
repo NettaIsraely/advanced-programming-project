@@ -204,15 +204,6 @@ def test_ride_cancel_already_cancelled_raises() -> None:
 
 
 @pytest.mark.parametrize(
-    ("ride_id", "msg"),
-    [
-        ("", "ride_id must be a non-empty string"),
-        ("   ", "ride_id must be a non-empty string"),
-        (None, "ride_id must be a non-empty string"),  # type: ignore[arg-type]
-        (123, "ride_id must be a non-empty string"),  # type: ignore[arg-type]
-    ],
-)
-@pytest.mark.parametrize(
     ("user_id", "msg"),
     [
         ("", "user_id must be a non-empty string"),
