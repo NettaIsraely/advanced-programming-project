@@ -64,14 +64,12 @@ def test_ride_creation_with_end_time_is_completed() -> None:
 
 
 def test_ride_creation_strips_ids() -> None:
-    """ride_id, user_id, vehicle_id are stripped of surrounding whitespace."""
+    """user_id, vehicle_id are stripped of surrounding whitespace."""
     r = Ride(
-        ride_id="  rid-1  ",
         user_id="  usr-1  ",
         vehicle_id="  v-1  ",
         start_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
     )
-    assert r.ride_id == "rid-1"
     assert r.user_id == "usr-1"
     assert r.vehicle_id == "v-1"
 
@@ -80,7 +78,6 @@ def test_ride_creation_with_all_optionals() -> None:
     """Ride accepts optional location, distance, fee."""
     start = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
     r = Ride(
-        ride_id="r1",
         user_id="u1",
         vehicle_id="v1",
         start_time=start,
