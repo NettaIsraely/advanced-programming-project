@@ -4,6 +4,7 @@ Unit tests for tlvflow.domain.rides (Ride model).
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 
 import pytest
@@ -14,7 +15,6 @@ from tlvflow.domain.rides import Ride
 
 def make_ride(
     *,
-    ride_id: str = "r1",
     user_id: str = "u1",
     vehicle_id: str = "v1",
     start_time: datetime | None = None,
@@ -24,7 +24,6 @@ def make_ride(
 ) -> Ride:
     start = start_time or datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
     return Ride(
-        ride_id=ride_id,
         user_id=user_id,
         vehicle_id=vehicle_id,
         start_time=start,
@@ -40,7 +39,8 @@ def make_ride(
 def test_ride_creation_minimal() -> None:
     """Ride with only required fields has ACTIVE status and default location/fee."""
     r = make_ride()
-    assert r.ride_id == "r1"
+    assert len(r.ride_id) == 32
+    assert re.fullmatch(r"[0-9a-f]{32}", r.ride_id) is not None
     assert r.user_id == "u1"
     assert r.vehicle_id == "v1"
     assert r.start_time.tzinfo is not None
