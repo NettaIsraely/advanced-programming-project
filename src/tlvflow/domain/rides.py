@@ -38,6 +38,7 @@ class Ride:
         end_longitude: float = 0.0,
         distance: float = 0.0,
         fee: float = 0.0,
+        ride_id: str | None = None,
     ) -> None:
         """
         Initialize a Ride instance.
@@ -54,7 +55,7 @@ class Ride:
             distance: Distance travelled
             fee: Ride fee
         """
-        self._ride_id = uuid4().hex
+        self._ride_id = ride_id or uuid4().hex
         self._user_id = self._validate_user_id(user_id)
         self._vehicle_id = self._validate_vehicle_id(vehicle_id)
         self.__start_time = self._validate_datetime(start_time, "start_time")

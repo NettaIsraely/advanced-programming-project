@@ -48,7 +48,6 @@ class RidesRepository:
 
 def _ride_to_dict(ride: Ride) -> dict[str, Any]:
     return {
-        "ride_id": ride.ride_id,
         "user_id": ride.user_id,
         "vehicle_id": ride.vehicle_id,
         "start_time": ride.start_time.isoformat(),
@@ -60,12 +59,14 @@ def _ride_to_dict(ride: Ride) -> dict[str, Any]:
         "distance": ride.distance,
         "fee": ride.fee,
         "status": ride.status().value,
+        "ride_id": ride.ride_id,
     }
 
 
 def _ride_from_dict(data: dict[str, Any]) -> Ride:
     user_id = str(data["user_id"])
     vehicle_id = str(data["vehicle_id"])
+    ride_id = str(data["ride_id"])
 
     start_time_raw = str(data["start_time"])
     start_time = datetime.fromisoformat(start_time_raw)
@@ -88,6 +89,7 @@ def _ride_from_dict(data: dict[str, Any]) -> Ride:
         end_longitude=float(data.get("end_longitude", 0.0)),
         distance=float(data.get("distance", 0.0)),
         fee=float(data.get("fee", 0.0)),
+        ride_id=ride_id,
     )
 
     status_raw = str(data.get("status", RideStatus.ACTIVE.value))

@@ -89,10 +89,10 @@ def test_snapshot_and_restore_round_trip_preserves_order_and_status() -> None:
     assert r3.status() == RideStatus.COMPLETED
 
     assert [r.ride_id for r in restored.get_by_user_id("u1")] == [
-        active.ride_id,
-        cancelled.ride_id,
+        r1.ride_id,
+        r2.ride_id,
     ]
-    assert [r.ride_id for r in restored.get_by_user_id("u2")] == [completed.ride_id]
+    assert [r.ride_id for r in restored.get_by_user_id("u2")] == [r3.ride_id]
 
 
 def test_restore_clears_previous_state() -> None:
