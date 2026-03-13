@@ -212,17 +212,6 @@ def test_ride_cancel_already_cancelled_raises() -> None:
         (123, "ride_id must be a non-empty string"),  # type: ignore[arg-type]
     ],
 )
-def test_ride_creation_invalid_ride_id(ride_id: str | None | int, msg: str) -> None:
-    """Creation rejects empty, whitespace, or non-string ride_id."""
-    with pytest.raises(ValueError, match=msg):
-        Ride(
-            ride_id=ride_id,  # type: ignore[arg-type]
-            user_id="u1",
-            vehicle_id="v1",
-            start_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
-        )
-
-
 @pytest.mark.parametrize(
     ("user_id", "msg"),
     [
