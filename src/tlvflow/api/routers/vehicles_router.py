@@ -1,12 +1,18 @@
 import logging
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from tlvflow.persistence.degraded_vehicles_repository import DegradedVehiclesRepository
+from tlvflow.api.schemas import OkResponse, ReportDegradedRequest
+from tlvflow.persistence.degraded_vehicles_repository import (
+    DegradedVehiclesRepository,
+)
 from tlvflow.persistence.in_memory import StationRepository, VehicleRepository
 from tlvflow.persistence.maintenance_repository import MaintenanceRepository
-from tlvflow.services.vehicles_service import treat_vehicles
+from tlvflow.services.vehicles_service import (
+    report_degraded_vehicle,
+    treat_vehicles,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -57,3 +63,46 @@ async def treat(request: Request) -> JSONResponse:
         vehicles_repo, stations_repo, maintenance_repo, degraded_repo
     )
     return JSONResponse(content={"treated_vehicles": treated_ids})
+
+
+@router.post("/vehicle/report-degraded", response_model=OkResponse)  # type: ignore[misc]
+async def report_degraded(
+    request: Request,
+    body: ReportDegradedRequest,
+) -> OkResponse:
+    """Report a vehicle as degraded during an active ride."""
+
+    rides_repo = getattr(request.app.state, "rides_repository", None)
+    vehicles_repo = getattr(request.app.state, "vehicle_repository", None)
+    degraded_repo = getattr(request.app.state, "degraded_vehicles_repository", None)
+
+    if rides_repo is None:
+        raise RuntimeError("rides_repository not initialized")
+
+    if vehicles_repo is None:
+        raise RuntimeError("vehicle_repository not initialized")
+
+    if degraded_repo is None:
+        raise RuntimeError("degraded_vehicles_repository not initialized")
+
+    try:
+        report_degraded_vehicle(
+            user_id=body.user_id,
+            vehicle_id=body.vehicle_id,
+            rides_repo=rides_repo,
+            vehicles_repo=vehicles_repo,
+            degraded_repo=degraded_repo,
+        )
+
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    except ValueError as exc:
+        msg = str(exc)
+
+        if msg == "no active ride":
+            raise HTTPException(status_code=409, detail=msg) from exc
+
+        raise HTTPException(status_code=400, detail=msg) from exc
+
+    return OkResponse()
