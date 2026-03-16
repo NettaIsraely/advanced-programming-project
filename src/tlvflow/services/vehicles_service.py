@@ -7,6 +7,7 @@ from tlvflow.domain.enums import VehicleStatus
 from tlvflow.domain.maintenance_event import MaintenanceEvent
 from tlvflow.persistence.degraded_vehicles_repository import DegradedVehiclesRepository
 from tlvflow.persistence.in_memory import StationRepository, VehicleRepository
+from tlvflow.persistence.rides_repository import RidesRepository
 from tlvflow.repositories.interfaces import MaintenanceRepositoryProtocol
 
 
@@ -75,3 +76,37 @@ def treat_vehicles(
         treated_ids.append(vehicle._vehicle_id)
 
     return treated_ids
+
+
+def report_degraded_vehicle(
+    user_id: str,
+    vehicle_id: str,
+    rides_repo: RidesRepository,
+    vehicles_repo: VehicleRepository,
+    degraded_repo: DegradedVehiclesRepository,
+) -> None:
+
+    rides = rides_repo.get_by_user_id(user_id)
+
+    ride = next((r for r in rides if r.is_active()), None)
+
+    if ride is None:
+        raise ValueError("no active ride")
+
+    if ride.vehicle_id != vehicle_id:
+        raise ValueError("no active ride")
+
+    vehicle = vehicles_repo._vehicles.get(vehicle_id)
+
+    if vehicle is None:
+        raise LookupError("vehicle not found")
+
+    # mark vehicle as degraded
+    vehicle.set_status(VehicleStatus.DEGRADED)
+
+    # move vehicle to degraded repo
+    del vehicles_repo._vehicles[vehicle_id]
+    degraded_repo.add(vehicle)
+
+    # end ride with no charge
+    ride.end()
