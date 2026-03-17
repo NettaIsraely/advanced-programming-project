@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from tlvflow.domain.enums import EventStatus
+from tlvflow.domain.enums import EventStatus, TreatmentType
 from tlvflow.domain.maintenance_event import MaintenanceEvent
 
 
@@ -55,6 +55,7 @@ def _event_to_dict(event: MaintenanceEvent) -> dict[str, Any]:
         "event_id": event._event_id,
         "vehicle_id": event._vehicle_id,
         "report_id": event._report_id,
+        "treatments": [t.value for t in event._treatments],
         "open_time": event._MaintenanceEvent__open_time.isoformat(),  # type: ignore[attr-defined]
         "status": event._MaintenanceEvent__status.value,  # type: ignore[attr-defined]
         "closed_time": (
@@ -65,10 +66,12 @@ def _event_to_dict(event: MaintenanceEvent) -> dict[str, Any]:
 
 def _event_from_dict(data: dict[str, Any]) -> MaintenanceEvent:
     open_time = datetime.fromisoformat(str(data["open_time"]))
+    treatments = [TreatmentType(t) for t in data.get("treatments", [])]
     event = MaintenanceEvent(
         vehicle_id=str(data["vehicle_id"]),
         report_id=str(data["report_id"]),
         open_time=open_time,
+        treatments=treatments,
     )
     event._event_id = str(data["event_id"])
     event._MaintenanceEvent__status = EventStatus(str(data["status"]))  # type: ignore[attr-defined]
