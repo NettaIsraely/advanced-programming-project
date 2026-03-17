@@ -12,7 +12,7 @@ from tlvflow.persistence.active_users_repository import ActiveUsersRepository
 from tlvflow.persistence.in_memory import StationRepository, VehicleRepository
 from tlvflow.persistence.rides_repository import RidesRepository
 from tlvflow.persistence.users_repository import UsersRepository
-from tlvflow.services.rides_service import start_ride
+from tlvflow.services.rides_service import end_ride, start_ride
 
 logger = logging.getLogger(__name__)
 
@@ -112,4 +112,20 @@ async def end(request: Request, body: RideEndRequest) -> RideEndResponse:
             status_code=500, detail="Vehicle repository not initialized"
         )
 
-    return RideEndResponse(ride_id="ride_id_placeholder", fee=0.00)
+    try:
+        ride_id, fee = end_ride(
+            user_id=body.user_id,
+            vehicle_id=body.vehicle_id,
+            rides_repo=rides_repo,
+            active_users_repo=active_users_repo,
+            users_repo=users_repo,
+            vehicle_repo=vehicle_repo,
+        )
+    except ValueError as exc:
+        msg = str(exc)
+        if "not found" in msg or "does not have an active ride" in msg:
+            raise HTTPException(status_code=404, detail=msg)
+
+        raise HTTPException(status_code=400, detail=msg)
+
+    return RideEndResponse(ride_id=ride_id, fee=fee)
