@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+from tlvflow.domain.enums import VehicleStatus
 from tlvflow.domain.rides import Ride
 from tlvflow.persistence.active_users_repository import ActiveUsersRepository
 from tlvflow.persistence.in_memory import StationRepository, VehicleRepository
@@ -117,4 +118,23 @@ def end_ride(
             f"Provided vehicle_id ({vehicle_id}) does not match the active ride"
         )
 
-    return ("place_holder_ride_id", 0.00)
+    # End the ride using the domain model method
+    end_time = datetime.now(UTC)
+    ride.end(at=end_time)
+
+    # Calculate duration and fee
+    duration_minutes = (end_time - ride.start_time).total_seconds() / 60.0
+    placeholder_distance = 5.0  # As we have no real GPS tracking, we use a placeholder distance. In a real implementation, this would be calculated based on the start and end locations.
+    fee = ride.calculate_fee(duration=duration_minutes, distance=placeholder_distance)
+
+    # Update the vehicle status back to AVAILABLE
+    vehicle = vehicle_repo.get_by_id(vehicle_id)
+    if vehicle:
+        vehicle.set_status(VehicleStatus.AVAILABLE)
+        vehicle.rides_since_last_treated += 1
+
+    # Remove the user from the active users list
+    active_users_repo.clear(user_id)
+
+    # Return the data required by RideEndResponse
+    return ride.ride_id, fee
