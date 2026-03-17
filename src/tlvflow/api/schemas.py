@@ -61,7 +61,7 @@ class RideStartRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     user_id: str = Field(min_length=1)
-    station_id: str = Field(min_length=1)
+    station_id: int = Field(ge=1)
 
 
 class RideStartResponse(BaseModel):

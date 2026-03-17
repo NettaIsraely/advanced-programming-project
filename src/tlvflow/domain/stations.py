@@ -85,6 +85,13 @@ class Station:
             raise ValueError("vehicle is not in this station") from exc
         vehicle._station_id = None
 
+    def checkout_vehicle(self) -> Vehicle:
+        if self.is_empty:
+            raise ValueError("Station is empty")
+        vehicle = self._vehicles.pop()
+        vehicle._station_id = None
+        return vehicle
+
     # validation
     @staticmethod
     def _validate_station_id(station_id: int) -> int:
