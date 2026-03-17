@@ -44,6 +44,7 @@ def treat_vehicles(
             vehicle_id=vehicle._vehicle_id,
             report_id=report_id,
             open_time=datetime.now(UTC),
+            treatments=vehicle.get_required_treatments(),
         )
         event.close_event()
         maintenance_repo.add(event)

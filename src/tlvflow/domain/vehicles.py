@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 from abc import ABC
 from datetime import date, datetime
 from typing import Any
 
-from tlvflow.domain.enums import VehicleStatus
+from tlvflow.domain.enums import TreatmentType, VehicleStatus
 
 
 class Vehicle(ABC):
@@ -109,6 +111,10 @@ class Vehicle(ABC):
         self.rides_since_last_treated = 0
         self._last_treated_date = date.today()
 
+    def get_required_treatments(self) -> list[TreatmentType]:
+        """Return the list of treatments required for this vehicle type."""
+        return [TreatmentType.GENERAL_INSPECTION]
+
     def check_status(self) -> VehicleStatus:
         """
         Check the current status of the vehicle.
@@ -174,6 +180,9 @@ class Bike(Vehicle):
                 maintenance or user reported), False otherwise
         """
         return super().check_maintenance_needed(reports)
+
+    def get_required_treatments(self) -> list[TreatmentType]:
+        return [TreatmentType.CHAIN_LUBRICATION, TreatmentType.GENERAL_INSPECTION]
 
 
 class EBike(Vehicle):
@@ -268,6 +277,9 @@ class Scooter(Vehicle):
         base_maintenance = super().check_maintenance_needed(reports)
         # Also check battery level
         return base_maintenance or self.battery_level < 20
+
+    def get_required_treatments(self) -> list[TreatmentType]:
+        return [TreatmentType.BATTERY_INSPECTION, TreatmentType.SCOOTER_FIRMWARE_UPDATE]
 
 
 class VehicleFactory:
