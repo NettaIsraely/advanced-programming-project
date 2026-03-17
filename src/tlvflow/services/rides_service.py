@@ -33,21 +33,25 @@ def start_ride(
         ValueError: If validation fails (user not found, station empty, etc.)
     """
 
-    # 1. Validate the user exists
+    # Validate the user exists
     user = users_repo.get_by_id(user_id)
     if not user:
         raise ValueError(f"User {user_id} not found")
 
-    # 2. Check if the user already has an active ride
+    # Check if the user already has an active ride
     if active_users_repo.get_ride_id(user_id) is not None:
         raise ValueError("User already has an active ride")
 
-    # 3. Validate the station exists and has vehicles
+    # Validate the station exists and has vehicles
     station = station_repo.get_by_id(station_id)
     if not station:
         raise ValueError(f"Station {station_id} not found")
 
-    vehicle_id = "vehicle_id_placeholder"  # TODO: Get an actual available vehicle ID from the station
+    # Checkout a vehicle from the station
+    try:
+        vehicle_id = station.checkout_vehicle().vehicle_id
+    except Exception as e:
+        raise ValueError(f"Failed to checkout vehicle: {str(e)}")
 
     if station.is_empty:
         raise ValueError(f"Station {station_id} has no available vehicles")
@@ -59,5 +63,8 @@ def start_ride(
         start_latitude=station.latitude,
         start_longitude=station.longitude,
     )
+
+    rides_repo.add(ride)
+    active_users_repo.set_active(user_id, ride.ride_id)
 
     return (ride.ride_id, vehicle_id)
