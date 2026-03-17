@@ -7,6 +7,7 @@ from tlvflow.persistence.active_users_repository import ActiveUsersRepository
 from tlvflow.persistence.in_memory import StationRepository
 from tlvflow.persistence.rides_repository import RidesRepository
 from tlvflow.persistence.users_repository import UsersRepository
+from tlvflow.services.rides_service import start_ride
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +47,23 @@ async def start(request: Request, body: RideStartRequest) -> RideStartResponse:
         logger.error("users_repository not initialized on app.state")
         raise HTTPException(status_code=500, detail="Users repository not initialized")
 
-    ride_id = "ride_id_placeholder"
-    vehicle_id = "vehicle_id_placeholder"
+    try:
+        ride_id, vehicle_id = start_ride(
+            user_id=body.user_id,
+            station_id=body.station_id,
+            rides_repo=rides_repo,
+            active_users_repo=active_users_repo,
+            station_repo=station_repo,
+            users_repo=users_repo,
+        )
+    except ValueError as exc:
+        msg = str(exc)
+        if "already has an active ride" in msg:
+            raise HTTPException(status_code=409, detail=msg)
+        if "not found" in msg:
+            raise HTTPException(status_code=404, detail=msg)
+
+        raise HTTPException(status_code=400, detail=msg)
 
     return RideStartResponse(
         ride_id=ride_id, vehicle_id=vehicle_id, station_id=body.station_id
