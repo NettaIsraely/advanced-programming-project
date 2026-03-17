@@ -77,6 +77,7 @@ class RideEndRequest(BaseModel):
 
     user_id: str = Field(min_length=1)
     vehicle_id: str = Field(min_length=1)
+    station_id: int = Field(ge=1)
 
 
 class RideEndResponse(BaseModel):
