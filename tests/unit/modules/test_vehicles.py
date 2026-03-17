@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from tlvflow.domain.enums import VehicleStatus
+from tlvflow.domain.enums import TreatmentType, VehicleStatus
 from tlvflow.domain.vehicles import Bike, EBike, Scooter, Vehicle
 
 
@@ -200,3 +200,44 @@ def test_scooter_maintenance_not_needed_when_base_false_and_battery_ok() -> None
     s.rides_since_last_treated = 2
 
     assert s.check_maintenance_needed() is False
+
+
+# --- get_required_treatments() ---
+
+
+# The base Vehicle implementation (accessed via a concrete subclass that does NOT
+# override get_required_treatments) should return only GENERAL_INSPECTION.
+class _BaseVehicle(Vehicle):
+    @property
+    def is_electric(self) -> bool:
+        return False
+
+
+def test_base_vehicle_get_required_treatments_returns_general_inspection() -> None:
+    v = _BaseVehicle("V_BASE", "F_BASE")
+    assert v.get_required_treatments() == [TreatmentType.GENERAL_INSPECTION]
+
+
+def test_bike_get_required_treatments_returns_chain_lubrication_and_general_inspection() -> (
+    None
+):
+    b = Bike("B_T1", "FB_T1")
+    assert b.get_required_treatments() == [
+        TreatmentType.CHAIN_LUBRICATION,
+        TreatmentType.GENERAL_INSPECTION,
+    ]
+
+
+def test_ebike_get_required_treatments_returns_general_inspection() -> None:
+    e = EBike("E_T1", "FE_T1")
+    assert e.get_required_treatments() == [TreatmentType.GENERAL_INSPECTION]
+
+
+def test_scooter_get_required_treatments_returns_battery_inspection_and_firmware_update() -> (
+    None
+):
+    s = Scooter("S_T1", "FS_T1")
+    assert s.get_required_treatments() == [
+        TreatmentType.BATTERY_INSPECTION,
+        TreatmentType.SCOOTER_FIRMWARE_UPDATE,
+    ]

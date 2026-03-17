@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 
+from tlvflow.domain.enums import TreatmentType
 from tlvflow.domain.maintenance_event import MaintenanceEvent
 from tlvflow.persistence.maintenance_repository import MaintenanceRepository
 
@@ -43,7 +44,10 @@ def test_snapshot_and_restore_round_trip() -> None:
     repo = MaintenanceRepository()
     now = datetime.now(UTC)
 
-    open_event = MaintenanceEvent(vehicle_id="v1", report_id="r1", open_time=now)
+    treatments = [TreatmentType.CHAIN_LUBRICATION, TreatmentType.GENERAL_INSPECTION]
+    open_event = MaintenanceEvent(
+        vehicle_id="v1", report_id="r1", open_time=now, treatments=treatments
+    )
     closed_event = MaintenanceEvent(vehicle_id="v1", report_id="r2", open_time=now)
     closed_event.close_event()
 
@@ -63,9 +67,11 @@ def test_snapshot_and_restore_round_trip() -> None:
     assert restored_open._vehicle_id == open_event._vehicle_id
     assert restored_open._report_id == open_event._report_id
     assert restored_open._closed_time is None
+    assert restored_open._treatments == treatments
 
     assert restored_closed is not None
     assert restored_closed._event_id == closed_event._event_id
     assert restored_closed._closed_time is not None
+    assert restored_closed._treatments == []
 
     assert len(new_repo.get_by_vehicle_id("v1")) == 2

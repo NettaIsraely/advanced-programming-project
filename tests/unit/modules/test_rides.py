@@ -4,6 +4,7 @@ Unit tests for tlvflow.domain.rides (Ride model).
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 
 import pytest
@@ -14,7 +15,6 @@ from tlvflow.domain.rides import Ride
 
 def make_ride(
     *,
-    ride_id: str = "r1",
     user_id: str = "u1",
     vehicle_id: str = "v1",
     start_time: datetime | None = None,
@@ -24,7 +24,6 @@ def make_ride(
 ) -> Ride:
     start = start_time or datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
     return Ride(
-        ride_id=ride_id,
         user_id=user_id,
         vehicle_id=vehicle_id,
         start_time=start,
@@ -40,7 +39,8 @@ def make_ride(
 def test_ride_creation_minimal() -> None:
     """Ride with only required fields has ACTIVE status and default location/fee."""
     r = make_ride()
-    assert r.ride_id == "r1"
+    assert len(r.ride_id) == 32
+    assert re.fullmatch(r"[0-9a-f]{32}", r.ride_id) is not None
     assert r.user_id == "u1"
     assert r.vehicle_id == "v1"
     assert r.start_time.tzinfo is not None
@@ -64,14 +64,12 @@ def test_ride_creation_with_end_time_is_completed() -> None:
 
 
 def test_ride_creation_strips_ids() -> None:
-    """ride_id, user_id, vehicle_id are stripped of surrounding whitespace."""
+    """user_id, vehicle_id are stripped of surrounding whitespace."""
     r = Ride(
-        ride_id="  rid-1  ",
         user_id="  usr-1  ",
         vehicle_id="  v-1  ",
         start_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
     )
-    assert r.ride_id == "rid-1"
     assert r.user_id == "usr-1"
     assert r.vehicle_id == "v-1"
 
@@ -80,7 +78,6 @@ def test_ride_creation_with_all_optionals() -> None:
     """Ride accepts optional location, distance, fee."""
     start = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
     r = Ride(
-        ride_id="r1",
         user_id="u1",
         vehicle_id="v1",
         start_time=start,
@@ -207,26 +204,6 @@ def test_ride_cancel_already_cancelled_raises() -> None:
 
 
 @pytest.mark.parametrize(
-    ("ride_id", "msg"),
-    [
-        ("", "ride_id must be a non-empty string"),
-        ("   ", "ride_id must be a non-empty string"),
-        (None, "ride_id must be a non-empty string"),  # type: ignore[arg-type]
-        (123, "ride_id must be a non-empty string"),  # type: ignore[arg-type]
-    ],
-)
-def test_ride_creation_invalid_ride_id(ride_id: str | None | int, msg: str) -> None:
-    """Creation rejects empty, whitespace, or non-string ride_id."""
-    with pytest.raises(ValueError, match=msg):
-        Ride(
-            ride_id=ride_id,  # type: ignore[arg-type]
-            user_id="u1",
-            vehicle_id="v1",
-            start_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
-        )
-
-
-@pytest.mark.parametrize(
     ("user_id", "msg"),
     [
         ("", "user_id must be a non-empty string"),
@@ -237,7 +214,6 @@ def test_ride_creation_invalid_user_id(user_id: str, msg: str) -> None:
     """Creation rejects empty or whitespace user_id."""
     with pytest.raises(ValueError, match=msg):
         Ride(
-            ride_id="r1",
             user_id=user_id,
             vehicle_id="v1",
             start_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
@@ -255,7 +231,6 @@ def test_ride_creation_invalid_vehicle_id(vehicle_id: str, msg: str) -> None:
     """Creation rejects empty or whitespace vehicle_id."""
     with pytest.raises(ValueError, match=msg):
         Ride(
-            ride_id="r1",
             user_id="u1",
             vehicle_id=vehicle_id,
             start_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
@@ -266,7 +241,6 @@ def test_ride_creation_invalid_start_time_type() -> None:
     """Creation rejects non-datetime start_time."""
     with pytest.raises(ValueError, match="start_time must be a datetime"):
         Ride(
-            ride_id="r1",
             user_id="u1",
             vehicle_id="v1",
             start_time="2026-01-01 12:00:00",  # type: ignore[arg-type]
@@ -284,7 +258,6 @@ def test_ride_creation_invalid_float_field(value: object, name: str) -> None:
     """Creation rejects non-numeric values for float fields."""
     with pytest.raises(ValueError, match=f"{name} must be a number"):
         Ride(
-            ride_id="r1",
             user_id="u1",
             vehicle_id="v1",
             start_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
@@ -314,7 +287,7 @@ def test_ride_status_and_is_active() -> None:
     assert r.status() == RideStatus.COMPLETED
     assert r.is_active() is False
 
-    r2 = make_ride(ride_id="r2")
+    r2 = make_ride()
     r2.cancel()
     assert r2.status() == RideStatus.CANCELLED
     assert r2.is_active() is False

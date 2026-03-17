@@ -39,3 +39,12 @@ class PaymentKind(Enum):
     CHARGE = "charge"
     RECEIPT = "receipt"
     REFUND = "refund"
+
+
+class TreatmentType(Enum):
+    """Types of maintenance treatments that can be applied to vehicles."""
+
+    GENERAL_INSPECTION = "general_inspection"
+    CHAIN_LUBRICATION = "chain_lubrication"
+    BATTERY_INSPECTION = "battery_inspection"
+    SCOOTER_FIRMWARE_UPDATE = "scooter_firmware_update"
