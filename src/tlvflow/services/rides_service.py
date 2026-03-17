@@ -47,14 +47,14 @@ def start_ride(
     if not station:
         raise ValueError(f"Station {station_id} not found")
 
+    if station.is_empty:
+        raise ValueError(f"Station {station_id} has no available vehicles")
+
     # Checkout a vehicle from the station
     try:
         vehicle_id = station.checkout_vehicle().vehicle_id
     except Exception as e:
         raise ValueError(f"Failed to checkout vehicle: {str(e)}")
-
-    if station.is_empty:
-        raise ValueError(f"Station {station_id} has no available vehicles")
 
     ride = Ride(
         user_id=user_id,
