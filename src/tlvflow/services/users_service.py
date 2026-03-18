@@ -7,7 +7,7 @@ from tlvflow.persistence.active_users_repository import ActiveUsersRepository
 from tlvflow.persistence.users_repository import UsersRepository
 
 
-def register_user(
+async def register_user(
     repo: UsersRepository,
     name: str,
     email: str,
@@ -26,7 +26,7 @@ def register_user(
     return user.user_id
 
 
-def get_active_users(
+async def get_active_users(
     active_users_repo: ActiveUsersRepository,
     users_repo: UsersRepository,
 ) -> list[dict[str, Any]]:

@@ -27,7 +27,7 @@ async def register(request: Request, body: RegisterRequest) -> RegisterResponse:
         raise RuntimeError("Users repository not initialized")
 
     try:
-        user_id = register_user(
+        user_id = await register_user(
             repo,
             name=body.name,
             email=body.email,
@@ -68,5 +68,5 @@ async def active_users(request: Request) -> JSONResponse:
             content={"detail": "Users repository not initialized"},
         )
 
-    users = get_active_users(active_users_repo, users_repo)
+    users = await get_active_users(active_users_repo, users_repo)
     return JSONResponse(content={"users": users})

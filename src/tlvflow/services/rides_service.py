@@ -8,7 +8,7 @@ from tlvflow.persistence.rides_repository import RidesRepository
 from tlvflow.persistence.users_repository import UsersRepository
 
 
-def start_ride(
+async def start_ride(
     user_id: str,
     station_id: int,
     rides_repo: RidesRepository,
@@ -71,7 +71,7 @@ def start_ride(
     return (ride.ride_id, vehicle_id)
 
 
-def end_ride(
+async def end_ride(
     user_id: str,
     vehicle_id: str,
     rides_repo: RidesRepository,

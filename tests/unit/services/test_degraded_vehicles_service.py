@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
 from tlvflow.domain.enums import VehicleStatus
@@ -30,7 +32,7 @@ def test_mark_degraded_undocks_and_adds_to_repo() -> None:
     station_repo.add(station)
 
     assert bike.station_id == 1
-    out = mark_degraded(station_repo, vehicle_repo, degraded_repo, "v1")
+    out = asyncio.run(mark_degraded(station_repo, vehicle_repo, degraded_repo, "v1"))
 
     assert out is bike
     assert station.vehicles == ()
@@ -45,7 +47,10 @@ def test_mark_degraded_returns_none_when_vehicle_not_at_station() -> None:
     bike = Bike("v1", "F1", status=VehicleStatus.DEGRADED)
     vehicle_repo.add(bike)
 
-    assert mark_degraded(station_repo, vehicle_repo, degraded_repo, "v1") is None
+    assert (
+        asyncio.run(mark_degraded(station_repo, vehicle_repo, degraded_repo, "v1"))
+        is None
+    )
     assert degraded_repo.get_all() == []
 
 
@@ -59,7 +64,7 @@ def test_unmark_degraded_docks_at_random_station() -> None:
     station = Station(1, "Central", 32.0, 34.8, capacity=5)
     station_repo.add(station)
 
-    out = unmark_degraded(station_repo, degraded_repo, "v1")
+    out = asyncio.run(unmark_degraded(station_repo, degraded_repo, "v1"))
 
     assert out is bike
     assert degraded_repo.get_all() == []
@@ -86,7 +91,7 @@ def test_unmark_degraded_when_no_capacity_raises() -> None:
     station_repo.add(s2)
 
     with pytest.raises(ValueError, match="No station with available capacity"):
-        unmark_degraded(station_repo, degraded_repo, "v1")
+        asyncio.run(unmark_degraded(station_repo, degraded_repo, "v1"))
 
     assert degraded_repo.get_by_id("v1") is bike1
 
@@ -101,11 +106,13 @@ def test_restore_degraded_undocks_vehicles_from_stations() -> None:
     station.dock(bike)
     station_repo.add(station)
 
-    restore_degraded(
-        station_repo,
-        vehicle_repo,
-        degraded_repo,
-        {"vehicle_ids": ["v1"]},
+    asyncio.run(
+        restore_degraded(
+            station_repo,
+            vehicle_repo,
+            degraded_repo,
+            {"vehicle_ids": ["v1"]},
+        )
     )
 
     assert len(degraded_repo.get_all()) == 1
