@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from tlvflow.api.routes import router as api_router
 from tlvflow.domain.payment_service import PaymentService
@@ -62,9 +63,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         rides_repo.restore(snapshot.get("rides", {}))
         maintenance_repo.restore(snapshot.get("maintenance", {}))
         payments_repo.restore(snapshot.get("payments", {}))
-        await link_vehicles_to_stations(
-            vehicle_repo, station_repo, degraded_vehicles_repo
-        )
+        # Stations already have vehicles docked from restore; do not run link_vehicles (would skip vehicles with no station_id and log warnings).
         await restore_degraded(
             station_repo,
             vehicle_repo,
@@ -116,4 +115,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 app = FastAPI(title="TLVFlow API", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
+)
 app.include_router(api_router)

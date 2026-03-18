@@ -8,9 +8,7 @@ from fastapi.testclient import TestClient
 
 from tlvflow.api.app import app
 from tlvflow.persistence.active_users_repository import ActiveUsersRepository
-from tlvflow.persistence.degraded_vehicles_repository import (
-    DegradedVehiclesRepository,
-)
+from tlvflow.persistence.degraded_vehicles_repository import DegradedVehiclesRepository
 from tlvflow.persistence.in_memory import StationRepository, VehicleRepository
 from tlvflow.persistence.rides_repository import RidesRepository
 from tlvflow.persistence.users_repository import UsersRepository
@@ -44,11 +42,10 @@ def _make_client() -> TestClient:
     asyncio.run(link_vehicles_to_stations(vehicle_repo, station_repo, degraded_repo))
 
     client = TestClient(app)
+    client.get("/health")  # trigger lifespan: loads from CSV, links vehicles
     client.app.state.users_repository = UsersRepository()
     client.app.state.rides_repository = RidesRepository()
     client.app.state.active_users_repository = ActiveUsersRepository()
-    client.app.state.station_repository = station_repo
-    client.app.state.vehicle_repository = vehicle_repo
     return client
 
 
@@ -113,12 +110,32 @@ def test_start_ride_user_already_on_ride_returns_409() -> None:
             "/ride/start",
             json={
                 "user_id": user_id,
-                "lon": 34.78759,
-                "lat": 32.135211,
+                "lon": NEAR_STATION_1_LON,
+                "lat": NEAR_STATION_1_LAT,
             },
         )
 
     assert second.status_code == 409
+
+
+def test_start_by_station_backward_compat() -> None:
+    """POST /ride/start-by-station with station_id works for backward compatibility."""
+    with _make_client() as client:
+        reg = client.post(
+            "/register", json=_register_payload(f"by-station-{uuid4().hex}@example.com")
+        )
+        assert reg.status_code == 201
+        user_id = reg.json()["user_id"]
+
+        start = client.post(
+            "/ride/start-by-station",
+            json={"user_id": user_id, "station_id": 1},
+        )
+        assert start.status_code == 201
+        data = start.json()
+        assert data["start_station_id"] == 1
+        assert "ride_id" in data
+        assert "vehicle_id" in data
 
 
 def test_start_ride_nonexistent_user_returns_404() -> None:

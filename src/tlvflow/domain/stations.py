@@ -124,6 +124,18 @@ class Station:
         chosen._station_id = None
         return chosen
 
+    def checkout_vehicle_by_id(self, vehicle_id: str) -> Vehicle:
+        """Check out a specific vehicle by id from this station. Raises if not found."""
+        if not isinstance(vehicle_id, str) or not vehicle_id.strip():
+            raise ValueError("vehicle_id must be a non-empty string")
+        vid = vehicle_id.strip()
+        for i, v in enumerate(self._vehicles):
+            if v.vehicle_id == vid:
+                vehicle = self._vehicles.pop(i)
+                vehicle._station_id = None
+                return vehicle
+        raise ValueError(f"Vehicle {vehicle_id} is not at this station")
+
     # validation
     @staticmethod
     def _validate_station_id(station_id: int) -> int:

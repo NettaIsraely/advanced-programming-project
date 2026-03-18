@@ -1,17 +1,31 @@
 from __future__ import annotations
 
 import asyncio
+import math
 from collections import defaultdict
 
 from tlvflow.domain.stations import Station
 from tlvflow.domain.vehicles import Vehicle
 from tlvflow.persistence.in_memory import StationRepository
 
+# Approximate meters per degree at equator; longitude scaled by cos(lat)
+_METERS_PER_DEGREE_LAT = 111_320.0
+
 
 def _distance_sq(station: Station, lon: float, lat: float) -> float:
     dx = station.longitude - lon
     dy = station.latitude - lat
     return dx * dx + dy * dy
+
+
+def distance_meters(station: Station, lon: float, lat: float) -> float:
+    """Return approximate distance in meters from (lon, lat) to station."""
+    dx_deg = station.longitude - lon
+    dy_deg = station.latitude - lat
+    lat_rad = math.radians(lat)
+    dx_m = dx_deg * _METERS_PER_DEGREE_LAT * math.cos(lat_rad)
+    dy_m = dy_deg * _METERS_PER_DEGREE_LAT
+    return math.sqrt(dx_m * dx_m + dy_m * dy_m)
 
 
 async def find_nearest_station(

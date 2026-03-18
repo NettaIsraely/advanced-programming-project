@@ -8,6 +8,24 @@ from tlvflow.persistence.active_users_repository import ActiveUsersRepository
 from tlvflow.persistence.users_repository import UsersRepository
 
 
+def login_user(
+    repo: UsersRepository,
+    email: str,
+    password: str,
+) -> dict[str, Any]:
+    """Authenticate by email and password. Returns user_id, name, is_pro. Raises ValueError on failure."""
+    user = repo.get_by_email(email)
+    if user is None:
+        raise ValueError("Invalid email or password")
+    if not user.login(password):
+        raise ValueError("Invalid email or password")
+    return {
+        "user_id": user.user_id,
+        "name": user._name,
+        "is_pro": isinstance(user, ProUser),
+    }
+
+
 async def register_user(
     repo: UsersRepository,
     name: str,
@@ -68,4 +86,26 @@ def _user_to_dict(user: User) -> dict[str, Any]:
         "name": user._name,
         "email": user.email,
         "payment_method_id": user.payment_method_id,
+        "is_pro": isinstance(user, ProUser),
     }
+
+
+def get_profile(repo: UsersRepository, user_id: str) -> dict[str, Any] | None:
+    """Return non-sensitive profile for a user, or None if not found."""
+    user = repo.get_by_id(user_id)
+    if user is None:
+        return None
+    return _user_to_dict(user)
+
+
+def update_payment_method(
+    repo: UsersRepository,
+    user_id: str,
+    payment_method_id: str,
+) -> None:
+    """Update a user's payment method. Raises ValueError if user not found."""
+    user = repo.get_by_id(user_id)
+    if user is None:
+        raise ValueError("User not found")
+    user.update_payment_method(payment_method_id)
+    repo.add(user)

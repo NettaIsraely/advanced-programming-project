@@ -57,6 +57,33 @@ class RegisterResponse(BaseModel):
     user_id: str
 
 
+class LoginRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    user_id: str
+    name: str
+    is_pro: bool
+
+
+class ProfileResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    user_id: str
+    name: str
+    email: str
+    payment_method_id: str
+    is_pro: bool
+
+
+class UpdatePaymentMethodRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    payment_method_id: str = Field(min_length=1)
+
+
 class UpgradeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -71,13 +98,27 @@ class UpgradeResponse(BaseModel):
     user_id: str
 
 
-# Rides: PDF spec — /ride/start (user location), /ride/end (ride_id + location)
+# Rides: PDF spec — POST /ride/start input: user_id, lon, lat (find nearest station with eligible vehicle)
 class RideStartRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     user_id: str = Field(min_length=1)
-    lon: float
-    lat: float
+    lon: float = Field(ge=-180.0, le=180.0)
+    lat: float = Field(ge=-90.0, le=90.0)
+
+
+class RideStartByStationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    user_id: str = Field(min_length=1)
+    station_id: int = Field(ge=1)
+
+
+class RideStartByVehicleRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    user_id: str = Field(min_length=1)
+    vehicle_id: str = Field(min_length=1)
 
 
 class RideStartResponse(BaseModel):
@@ -102,6 +143,31 @@ class RideEndResponse(BaseModel):
 
     end_station_id: int
     payment_charged: float
+
+
+class ActiveRideResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ride_id: str
+    vehicle_id: str
+    start_time: str
+
+
+class RideHistoryItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ride_id: str
+    vehicle_id: str
+    start_time: str
+    end_time: str
+    fee: float
+    status: str
+
+
+class RideHistoryResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    rides: list[RideHistoryItem]
 
 
 # Vehicle report degraded

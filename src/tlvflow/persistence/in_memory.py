@@ -95,13 +95,18 @@ class StationRepository:
     def restore(
         self, snapshot: dict[str, Any], *, vehicle_repo: VehicleRepository
     ) -> None:
-        """Replace the repository contents from a snapshot. Stations are created empty; use link_vehicles_to_stations to dock vehicles."""
+        """Replace the repository contents from a snapshot. Re-dock vehicles using each station's vehicle_ids so vehicles get station_id set."""
         self._stations.clear()
 
         for station_id_str, raw in snapshot.items():
-            station, _dock_vehicle_ids = _station_from_dict(raw)
+            station, vehicle_ids = _station_from_dict(raw)
             station_id = int(station_id_str)
             self._stations[station_id] = station
+            for vid in vehicle_ids:
+                vehicle = vehicle_repo.get_by_id(vid)
+                if vehicle is not None:
+                    vehicle._station_id = station_id
+                    station.dock(vehicle)
 
     def get_all(self) -> list[Station]:
         """Return all stations in memory."""
