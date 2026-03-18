@@ -71,7 +71,9 @@ async def start(request: Request, body: RideStartRequest) -> RideStartResponse:
         raise HTTPException(status_code=400, detail=msg)
 
     return RideStartResponse(
-        ride_id=ride_id, vehicle_id=vehicle_id, station_id=body.station_id
+        ride_id=ride_id,
+        vehicle_id=vehicle_id,
+        station_id=str(body.station_id),
     )
 
 
