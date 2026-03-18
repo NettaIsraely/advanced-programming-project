@@ -56,12 +56,13 @@ class RegisterResponse(BaseModel):
     user_id: str
 
 
-# Rides: (based on your ticket screenshots: /ride/start, /ride/end)
+# Rides: PDF spec — /ride/start (user location), /ride/end (ride_id + location)
 class RideStartRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     user_id: str = Field(min_length=1)
-    station_id: int = Field(ge=1)
+    lon: float
+    lat: float
 
 
 class RideStartResponse(BaseModel):
@@ -69,22 +70,23 @@ class RideStartResponse(BaseModel):
 
     ride_id: str
     vehicle_id: str
-    station_id: str
+    vehicle_type: str
+    start_station_id: int
 
 
 class RideEndRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    user_id: str = Field(min_length=1)
-    vehicle_id: str = Field(min_length=1)
-    station_id: int = Field(ge=1)
+    ride_id: str = Field(min_length=1)
+    lon: float
+    lat: float
 
 
 class RideEndResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    ride_id: str
-    fee: float
+    end_station_id: int
+    payment_charged: float
 
 
 # Vehicle report degraded

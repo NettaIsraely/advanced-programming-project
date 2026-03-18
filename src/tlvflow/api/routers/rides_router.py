@@ -53,9 +53,10 @@ async def start(request: Request, body: RideStartRequest) -> RideStartResponse:
         raise HTTPException(status_code=500, detail="Users repository not initialized")
 
     try:
-        ride_id, vehicle_id = start_ride(
+        ride_id, vehicle_id, vehicle_type, start_station_id = start_ride(
             user_id=body.user_id,
-            station_id=body.station_id,
+            lon=body.lon,
+            lat=body.lat,
             rides_repo=rides_repo,
             active_users_repo=active_users_repo,
             station_repo=station_repo,
@@ -65,13 +66,16 @@ async def start(request: Request, body: RideStartRequest) -> RideStartResponse:
         msg = str(exc)
         if "already has an active ride" in msg:
             raise HTTPException(status_code=409, detail=msg)
-        if "not found" in msg:
+        if "not found" in msg or "no station" in msg.lower():
             raise HTTPException(status_code=404, detail=msg)
 
         raise HTTPException(status_code=400, detail=msg)
 
     return RideStartResponse(
-        ride_id=ride_id, vehicle_id=vehicle_id, station_id=body.station_id
+        ride_id=ride_id,
+        vehicle_id=vehicle_id,
+        vehicle_type=vehicle_type,
+        start_station_id=start_station_id,
     )
 
 
@@ -112,20 +116,32 @@ async def end(request: Request, body: RideEndRequest) -> RideEndResponse:
             status_code=500, detail="Vehicle repository not initialized"
         )
 
+    station_repo = getattr(request.app.state, "station_repository", None)
+    if station_repo is None or not isinstance(station_repo, StationRepository):
+        logger.error("station_repository not initialized on app.state")
+        raise HTTPException(
+            status_code=500, detail="Station repository not initialized"
+        )
+
+    payment_service = getattr(request.app.state, "payment_service", None)
+
     try:
-        ride_id, fee = end_ride(
-            user_id=body.user_id,
-            vehicle_id=body.vehicle_id,
+        end_station_id, payment_charged = await end_ride(
+            ride_id=body.ride_id,
+            lon=body.lon,
+            lat=body.lat,
             rides_repo=rides_repo,
             active_users_repo=active_users_repo,
+            station_repo=station_repo,
             users_repo=users_repo,
             vehicle_repo=vehicle_repo,
+            payment_service=payment_service,
         )
     except ValueError as exc:
         msg = str(exc)
-        if "not found" in msg or "does not have an active ride" in msg:
+        if "not found" in msg or "does not have an active ride" in msg or "no station" in msg.lower():
             raise HTTPException(status_code=404, detail=msg)
 
         raise HTTPException(status_code=400, detail=msg)
 
-    return RideEndResponse(ride_id=ride_id, fee=fee)
+    return RideEndResponse(end_station_id=end_station_id, payment_charged=payment_charged)
