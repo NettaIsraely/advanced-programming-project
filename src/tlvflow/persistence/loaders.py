@@ -22,7 +22,7 @@ STATUS = "status"
 RIDES_SINCE_LAST_TREATED = "rides_since_last_treated"
 LAST_TREATED_DATE = "last_treated_date"
 HAS_CHILD_SEAT = "has_child_seat"
-BATTERY_LEVEL = "battery_level"
+BATTERY_HEALTH = "battery_health"
 
 # Stations: station_id, name, lat, lon, max_capacity
 STATION_NAME = "name"
@@ -134,21 +134,21 @@ def load_vehicles_from_csv(path: str | Path) -> list[Vehicle]:
                         status=status,
                     )
                 elif vehicle_type == "ebike":
-                    battery_level = _parse_int(row.get(BATTERY_LEVEL, "100"), 100)
-                    battery_level = max(0, min(100, battery_level))
+                    battery_health = _parse_int(row.get(BATTERY_HEALTH, "100"), 100)
+                    battery_health = max(0, min(100, battery_health))
                     vehicle = EBike(
                         vehicle_id=vehicle_id,
                         frame_number=frame_number,
-                        battery_level=battery_level,
+                        battery_health=battery_health,
                         status=status,
                     )
                 else:  # scooter
-                    battery_level = _parse_int(row.get(BATTERY_LEVEL, "100"), 100)
-                    battery_level = max(0, min(100, battery_level))
+                    battery_health = _parse_int(row.get(BATTERY_HEALTH, "100"), 100)
+                    battery_health = max(0, min(100, battery_health))
                     vehicle = Scooter(
                         vehicle_id=vehicle_id,
                         frame_number=frame_number,
-                        battery_level=battery_level,
+                        battery_health=battery_health,
                         status=status,
                     )
 

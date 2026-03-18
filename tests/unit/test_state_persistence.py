@@ -34,7 +34,7 @@ def test_state_store_round_trip_persists_vehicle_fields(tmp_path: Path) -> None:
     ebike = EBike(
         vehicle_id="v2",
         frame_number="F-2",
-        battery_level=15,
+        battery_health=15,
         status=VehicleStatus.AWAITING_REPORT_REVIEW,
     )
 

@@ -138,32 +138,32 @@ def test_complete_maintenance_resets_maintenance_counter() -> None:
 
 
 # Cover EBike battery validation: values below 0 and above 100 should raise ValueError.
-@pytest.mark.parametrize("battery_level", [-1, 101])
-def test_ebike_invalid_battery_level_raises(battery_level: int) -> None:
+@pytest.mark.parametrize("battery_health", [-1, 101])
+def test_ebike_invalid_battery_health_raises(battery_health: int) -> None:
     with pytest.raises(ValueError):
-        EBike("E2", "FE2", battery_level=battery_level)
+        EBike("E2", "FE2", battery_health=battery_health)
 
 
 # Cover Scooter battery validation: values below 0 and above 100 should raise ValueError.
-@pytest.mark.parametrize("battery_level", [-50, 150])
-def test_scooter_invalid_battery_level_raises(battery_level: int) -> None:
+@pytest.mark.parametrize("battery_health", [-50, 150])
+def test_scooter_invalid_battery_health_raises(battery_health: int) -> None:
     with pytest.raises(ValueError):
-        Scooter("S2", "FS2", battery_level=battery_level)
+        Scooter("S2", "FS2", battery_health=battery_health)
 
 
 # Cover EBike.check_maintenance_needed battery-based condition:
 # if base maintenance is False but battery < 20, it should still return True.
 def test_ebike_maintenance_needed_when_battery_low_even_if_base_false() -> None:
-    e = EBike("E3", "FE3", battery_level=19)
+    e = EBike("E3", "FE3", battery_health=19)
     e.rides_since_last_treated = 0
 
     assert e.check_maintenance_needed() is True
 
 
 # Cover EBike.check_maintenance_needed where base maintenance is True,
-# ensuring it returns True regardless of battery level.
+# ensuring it returns True regardless of battery health.
 def test_ebike_maintenance_needed_when_base_true_even_if_battery_ok() -> None:
-    e = EBike("E4", "FE4", battery_level=100)
+    e = EBike("E4", "FE4", battery_health=100)
     e.rides_since_last_treated = 10
 
     assert e.check_maintenance_needed() is True
@@ -172,7 +172,7 @@ def test_ebike_maintenance_needed_when_base_true_even_if_battery_ok() -> None:
 # Cover EBike.check_maintenance_needed where both base maintenance is False
 # and battery is NOT low, so result should be False.
 def test_ebike_maintenance_not_needed_when_base_false_and_battery_ok() -> None:
-    e = EBike("E5", "FE5", battery_level=20)
+    e = EBike("E5", "FE5", battery_health=20)
     e.rides_since_last_treated = 3
 
     assert e.check_maintenance_needed() is False
@@ -180,7 +180,7 @@ def test_ebike_maintenance_not_needed_when_base_false_and_battery_ok() -> None:
 
 # Mirror the EBike battery logic tests for Scooter: low battery triggers maintenance.
 def test_scooter_maintenance_needed_when_battery_low_even_if_base_false() -> None:
-    s = Scooter("S3", "FS3", battery_level=0)
+    s = Scooter("S3", "FS3", battery_health=0)
     s.rides_since_last_treated = 0
 
     assert s.check_maintenance_needed() is True
@@ -188,7 +188,7 @@ def test_scooter_maintenance_needed_when_battery_low_even_if_base_false() -> Non
 
 # Scooter returns True when base maintenance is True, regardless of battery.
 def test_scooter_maintenance_needed_when_base_true_even_if_battery_ok() -> None:
-    s = Scooter("S4", "FS4", battery_level=100)
+    s = Scooter("S4", "FS4", battery_health=100)
     s.rides_since_last_treated = 10
 
     assert s.check_maintenance_needed() is True
@@ -196,7 +196,7 @@ def test_scooter_maintenance_needed_when_base_true_even_if_battery_ok() -> None:
 
 # Scooter returns False when base maintenance is False and battery is not low.
 def test_scooter_maintenance_not_needed_when_base_false_and_battery_ok() -> None:
-    s = Scooter("S5", "FS5", battery_level=20)
+    s = Scooter("S5", "FS5", battery_health=20)
     s.rides_since_last_treated = 2
 
     assert s.check_maintenance_needed() is False

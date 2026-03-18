@@ -9,7 +9,7 @@ def test_vehicle_repository_loads_csv(tmp_path: Path) -> None:
     csv_path = tmp_path / "vehicles.csv"
     csv_path.write_text(
         "vehicle_id,station_id,vehicle_type,status,rides_since_last_treated,last_treated_date,"
-        "frame_number,has_child_seat,battery_level\n"
+        "frame_number,has_child_seat,battery_health\n"
         "v1,1,bicycle,available,0,2026-01-01,f1,true,\n"
         "v2,2,electric_bicycle,in_use,3,2026-01-02,f2,,88\n"
         "v3,3,scooter,degraded,7,2026-01-03,f3,,50\n",
@@ -39,8 +39,8 @@ def test_vehicle_repository_add_get_clear() -> None:
     assert repo.get_by_id("missing") is None
 
     bike = Bike(vehicle_id="b1", frame_number="fb1", has_child_seat=False)
-    ebike = EBike(vehicle_id="e1", frame_number="fe1", battery_level=90)
-    scooter = Scooter(vehicle_id="s1", frame_number="fs1", battery_level=40)
+    ebike = EBike(vehicle_id="e1", frame_number="fe1", battery_health=90)
+    scooter = Scooter(vehicle_id="s1", frame_number="fs1", battery_health=40)
 
     repo.add(bike)
     repo.add(ebike)

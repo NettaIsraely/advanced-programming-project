@@ -145,10 +145,10 @@ def _vehicle_to_dict(vehicle: Vehicle) -> dict[str, Any]:
         data["has_child_seat"] = bool(vehicle.has_child_seat)
     elif isinstance(vehicle, EBike):
         data["vehicle_type"] = "ebike"
-        data["battery_level"] = int(vehicle.battery_level)
+        data["battery_health"] = int(vehicle.battery_health)
     elif isinstance(vehicle, Scooter):
         data["vehicle_type"] = "scooter"
-        data["battery_level"] = int(vehicle.battery_level)
+        data["battery_health"] = int(vehicle.battery_health)
     else:
         raise TypeError(f"Unsupported vehicle type: {type(vehicle)!r}")
 
@@ -173,14 +173,14 @@ def _vehicle_from_dict(data: dict[str, Any]) -> Vehicle:
         vehicle = EBike(
             vehicle_id=vehicle_id,
             frame_number=frame_number,
-            battery_level=int(data.get("battery_level", 100)),
+            battery_health=int(data.get("battery_health", 100)),
             status=status,
         )
     elif vehicle_type == "scooter":
         vehicle = Scooter(
             vehicle_id=vehicle_id,
             frame_number=frame_number,
-            battery_level=int(data.get("battery_level", 100)),
+            battery_health=int(data.get("battery_health", 100)),
             status=status,
         )
     else:
