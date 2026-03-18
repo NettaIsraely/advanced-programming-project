@@ -61,8 +61,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         rides_repo.restore(snapshot.get("rides", {}))
         maintenance_repo.restore(snapshot.get("maintenance", {}))
         payments_repo.restore(snapshot.get("payments", {}))
-        link_vehicles_to_stations(vehicle_repo, station_repo, degraded_vehicles_repo)
-        restore_degraded(
+        await link_vehicles_to_stations(
+            vehicle_repo, station_repo, degraded_vehicles_repo
+        )
+        await restore_degraded(
             station_repo,
             vehicle_repo,
             degraded_vehicles_repo,
@@ -75,7 +77,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         station_count = station_repo.load_from_csv(STATIONS_CSV)
         logger.info("Loaded %d stations into memory", station_count)
 
-        link_vehicles_to_stations(vehicle_repo, station_repo, degraded_vehicles_repo)
+        await link_vehicles_to_stations(
+            vehicle_repo, station_repo, degraded_vehicles_repo
+        )
 
     app.state.vehicle_repository = vehicle_repo
     app.state.station_repository = station_repo

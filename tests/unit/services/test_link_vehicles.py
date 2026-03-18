@@ -1,5 +1,6 @@
 """Unit tests for link_vehicles_to_stations."""
 
+import asyncio
 import logging
 
 import pytest
@@ -36,7 +37,7 @@ def test_link_docks_vehicle_at_station_by_station_id() -> None:
     )
     station_repo.add(station)
 
-    link_vehicles_to_stations(vehicle_repo, station_repo, degraded_repo)
+    asyncio.run(link_vehicles_to_stations(vehicle_repo, station_repo, degraded_repo))
 
     assert station_repo.get_by_id(1) is not None
     assert [v._vehicle_id for v in station_repo.get_by_id(1).vehicles] == ["v1"]
@@ -66,7 +67,7 @@ def test_link_degraded_vehicle_goes_to_degraded_repo_not_docked() -> None:
     )
     station_repo.add(station)
 
-    link_vehicles_to_stations(vehicle_repo, station_repo, degraded_repo)
+    asyncio.run(link_vehicles_to_stations(vehicle_repo, station_repo, degraded_repo))
 
     assert list(station_repo.get_by_id(1).vehicles) == []
     assert list(degraded_repo.get_all()) == [bike]
@@ -88,7 +89,9 @@ def test_link_station_not_found_logs_and_skips(
     vehicle_repo.add(bike)
 
     with caplog.at_level(logging.WARNING):
-        link_vehicles_to_stations(vehicle_repo, station_repo, degraded_repo)
+        asyncio.run(
+            link_vehicles_to_stations(vehicle_repo, station_repo, degraded_repo)
+        )
 
     assert "Station 999 not found" in caplog.text
     assert bike.station_id == 999
@@ -125,7 +128,9 @@ def test_link_station_full_logs_and_skips(caplog: pytest.LogCaptureFixture) -> N
     station_repo.add(station)
 
     with caplog.at_level(logging.WARNING):
-        link_vehicles_to_stations(vehicle_repo, station_repo, degraded_repo)
+        asyncio.run(
+            link_vehicles_to_stations(vehicle_repo, station_repo, degraded_repo)
+        )
 
     assert "Station 1 is full" in caplog.text
     docked = list(station_repo.get_by_id(1).vehicles)
@@ -147,7 +152,9 @@ def test_link_no_station_id_logs_and_skips(caplog: pytest.LogCaptureFixture) -> 
     vehicle_repo.add(bike)
 
     with caplog.at_level(logging.WARNING):
-        link_vehicles_to_stations(vehicle_repo, station_repo, degraded_repo)
+        asyncio.run(
+            link_vehicles_to_stations(vehicle_repo, station_repo, degraded_repo)
+        )
 
     assert "no station_id" in caplog.text
     assert list(degraded_repo.get_all()) == []

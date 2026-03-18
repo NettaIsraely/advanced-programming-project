@@ -67,7 +67,7 @@ async def treat(request: Request) -> JSONResponse:
         )
 
     async with treat_lock:
-        treated_ids = treat_vehicles(
+        treated_ids = await treat_vehicles(
             vehicles_repo, stations_repo, maintenance_repo, degraded_repo
         )
     return JSONResponse(content={"treated_vehicles": treated_ids})
@@ -99,7 +99,7 @@ async def report_degraded(
 
     try:
         async with user_rides_locks[body.user_id]:
-            report_degraded_vehicle(
+            await report_degraded_vehicle(
                 user_id=body.user_id,
                 vehicle_id=body.vehicle_id,
                 rides_repo=rides_repo,

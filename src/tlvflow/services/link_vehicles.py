@@ -18,7 +18,7 @@ from tlvflow.persistence.in_memory import StationRepository, VehicleRepository
 logger = logging.getLogger(__name__)
 
 
-def link_vehicles_to_stations(
+async def link_vehicles_to_stations(
     vehicle_repo: VehicleRepository,
     station_repo: StationRepository,
     degraded_repo: DegradedVehiclesRepository,
