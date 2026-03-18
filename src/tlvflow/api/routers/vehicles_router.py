@@ -97,16 +97,20 @@ async def report_degraded(
     if active_users_repo is None:
         raise RuntimeError("active_users_repository not initialized")
 
-    try:
-        await report_degraded_vehicle(
-            user_id=body.user_id,
-            vehicle_id=body.vehicle_id,
-            rides_repo=rides_repo,
-            vehicles_repo=vehicles_repo,
-            degraded_repo=degraded_repo,
-            active_users_repo=active_users_repo,
-        )
+    user_rides_locks = getattr(request.app.state, "user_rides_locks", None)
+    if user_rides_locks is None:
+        raise RuntimeError("user_rides_locks not initialized on app.state")
 
+    try:
+        async with user_rides_locks[body.user_id]:
+            await report_degraded_vehicle(
+                user_id=body.user_id,
+                vehicle_id=body.vehicle_id,
+                rides_repo=rides_repo,
+                vehicles_repo=vehicles_repo,
+                degraded_repo=degraded_repo,
+                active_users_repo=active_users_repo,
+            )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

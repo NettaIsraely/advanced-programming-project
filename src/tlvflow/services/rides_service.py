@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
+
+import asyncio
 
 from tlvflow.domain.enums import VehicleStatus
 from tlvflow.domain.rides import Ride
@@ -26,6 +29,7 @@ async def start_ride(
     active_users_repo: ActiveUsersRepository,
     station_repo: StationRepository,
     users_repo: UsersRepository,
+    station_locks: defaultdict[int, asyncio.Lock] | None = None,
 ) -> tuple[str, str, str, int]:
     """
     Start a new ride: find nearest station with eligible vehicle, checkout, set IN_USE.
@@ -40,7 +44,9 @@ async def start_ride(
     if active_users_repo.get_ride_id(user_id) is not None:
         raise ValueError("User already has an active ride")
 
-    result = find_nearest_station_with_eligible_vehicle(station_repo, lon=lon, lat=lat)
+    result = await find_nearest_station_with_eligible_vehicle(
+        station_repo, lon=lon, lat=lat, station_locks=station_locks
+    )
     if result is None:
         raise ValueError("No station with eligible vehicle found")
 
@@ -76,6 +82,7 @@ async def end_ride(
     users_repo: UsersRepository,
     vehicle_repo: VehicleRepository,
     payment_service: PaymentService | None,
+    station_locks: defaultdict[int, asyncio.Lock] | None = None,
 ) -> tuple[int, float]:
     """
     End ride by ride_id: find nearest station with free slot, dock vehicle, charge 15 ILS.
@@ -95,7 +102,9 @@ async def end_ride(
     user_id = ride.user_id
     vehicle_id = ride.vehicle_id
 
-    station = find_nearest_station_with_free_slot(station_repo, lon=lon, lat=lat)
+    station = await find_nearest_station_with_free_slot(
+        station_repo, lon=lon, lat=lat
+    )
     if station is None:
         raise ValueError("No station with free slot found")
 
@@ -114,7 +123,16 @@ async def end_ride(
 
     vehicle = vehicle_repo.get_by_id(vehicle_id)
     if vehicle:
-        station.dock(vehicle)
+        if station_locks is not None:
+            async with station_locks[station.station_id]:
+                st = station_repo.get_by_id(station.station_id)
+                if st is None:
+                    raise ValueError(f"Station {station.station_id} not found")
+                if st.is_full:
+                    raise ValueError("No station with free slot found")
+                st.dock(vehicle)
+        else:
+            station.dock(vehicle)
         vehicle.set_status(VehicleStatus.AVAILABLE)
         vehicle.rides_since_last_treated += 1
 

@@ -53,16 +53,25 @@ async def start(request: Request, body: RideStartRequest) -> RideStartResponse:
         logger.error("users_repository not initialized on app.state")
         raise HTTPException(status_code=500, detail="Users repository not initialized")
 
-    try:
-        ride_id, vehicle_id, vehicle_type, start_station_id = await start_ride(
-            user_id=body.user_id,
-            lon=body.lon,
-            lat=body.lat,
-            rides_repo=rides_repo,
-            active_users_repo=active_users_repo,
-            station_repo=station_repo,
-            users_repo=users_repo,
+    station_locks = getattr(request.app.state, "station_locks", None)
+    user_rides_locks = getattr(request.app.state, "user_rides_locks", None)
+    if station_locks is None or user_rides_locks is None:
+        raise HTTPException(
+            status_code=500, detail="Locks not initialized on app.state"
         )
+
+    try:
+        async with user_rides_locks[body.user_id]:
+            ride_id, vehicle_id, vehicle_type, start_station_id = await start_ride(
+                user_id=body.user_id,
+                lon=body.lon,
+                lat=body.lat,
+                rides_repo=rides_repo,
+                active_users_repo=active_users_repo,
+                station_repo=station_repo,
+                users_repo=users_repo,
+                station_locks=station_locks,
+            )
     except ValueError as exc:
         msg = str(exc)
         if "already has an active ride" in msg:
@@ -129,18 +138,32 @@ async def end(request: Request, body: RideEndRequest) -> RideEndResponse:
         logger.error("payment_service not initialized on app.state")
         raise HTTPException(status_code=500, detail="Payment service not initialized")
 
-    try:
-        end_station_id, payment_charged = await end_ride(
-            ride_id=body.ride_id,
-            lon=body.lon,
-            lat=body.lat,
-            rides_repo=rides_repo,
-            active_users_repo=active_users_repo,
-            station_repo=station_repo,
-            users_repo=users_repo,
-            vehicle_repo=vehicle_repo,
-            payment_service=payment_service,
+    station_locks = getattr(request.app.state, "station_locks", None)
+    user_rides_locks = getattr(request.app.state, "user_rides_locks", None)
+    if station_locks is None or user_rides_locks is None:
+        raise HTTPException(
+            status_code=500, detail="Locks not initialized on app.state"
         )
+
+    ride = rides_repo.get_by_id(body.ride_id)
+    if ride is None:
+        raise HTTPException(status_code=404, detail="Ride not found")
+    user_id = ride.user_id
+
+    try:
+        async with user_rides_locks[user_id]:
+            end_station_id, payment_charged = await end_ride(
+                ride_id=body.ride_id,
+                lon=body.lon,
+                lat=body.lat,
+                rides_repo=rides_repo,
+                active_users_repo=active_users_repo,
+                station_repo=station_repo,
+                users_repo=users_repo,
+                vehicle_repo=vehicle_repo,
+                payment_service=payment_service,
+                station_locks=station_locks,
+            )
     except ValueError as exc:
         msg = str(exc)
         if (
