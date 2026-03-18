@@ -1,3 +1,4 @@
+import asyncio
 from datetime import date
 from pathlib import Path
 
@@ -110,8 +111,10 @@ def test_station_snapshot_round_trip_preserves_docked_vehicle_ids(
         snapshot["stations"], vehicle_repo=reloaded_vehicle_repo
     )
     degraded_repo = DegradedVehiclesRepository()
-    link_vehicles_to_stations(
-        reloaded_vehicle_repo, reloaded_station_repo, degraded_repo
+    asyncio.run(
+        link_vehicles_to_stations(
+            reloaded_vehicle_repo, reloaded_station_repo, degraded_repo
+        )
     )
 
     restored_station = reloaded_station_repo.get_by_id(1)

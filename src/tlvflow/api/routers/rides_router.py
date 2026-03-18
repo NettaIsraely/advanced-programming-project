@@ -53,7 +53,7 @@ async def start(request: Request, body: RideStartRequest) -> RideStartResponse:
         raise HTTPException(status_code=500, detail="Users repository not initialized")
 
     try:
-        ride_id, vehicle_id = start_ride(
+        ride_id, vehicle_id = await start_ride(
             user_id=body.user_id,
             station_id=body.station_id,
             rides_repo=rides_repo,
@@ -115,7 +115,7 @@ async def end(request: Request, body: RideEndRequest) -> RideEndResponse:
         )
 
     try:
-        ride_id, fee = end_ride(
+        ride_id, fee = await end_ride(
             user_id=body.user_id,
             vehicle_id=body.vehicle_id,
             rides_repo=rides_repo,

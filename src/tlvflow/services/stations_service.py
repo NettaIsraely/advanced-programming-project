@@ -4,7 +4,7 @@ from tlvflow.domain.stations import Station
 from tlvflow.persistence.in_memory import StationRepository
 
 
-def find_nearest_station(
+async def find_nearest_station(
     repo: StationRepository,
     *,
     lon: float,

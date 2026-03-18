@@ -8,7 +8,7 @@ from tlvflow.persistence.active_users_repository import ActiveUsersRepository
 from tlvflow.persistence.users_repository import UsersRepository
 
 
-def register_user(
+async def register_user(
     repo: UsersRepository,
     name: str,
     email: str,
@@ -27,6 +27,7 @@ def register_user(
     return user.user_id
 
 
+async def get_active_users(
 def upgrade_user_to_pro(
     repo: UsersRepository,
     user_id: str,
