@@ -11,6 +11,7 @@ from tlvflow.api.schemas import (
 from tlvflow.persistence.active_users_repository import ActiveUsersRepository
 from tlvflow.persistence.in_memory import StationRepository, VehicleRepository
 from tlvflow.persistence.rides_repository import RidesRepository
+from tlvflow.domain.payment_service import PaymentProcessingError
 from tlvflow.persistence.users_repository import UsersRepository
 from tlvflow.services.rides_service import end_ride, start_ride
 
@@ -124,6 +125,11 @@ async def end(request: Request, body: RideEndRequest) -> RideEndResponse:
         )
 
     payment_service = getattr(request.app.state, "payment_service", None)
+    if payment_service is None:
+        logger.error("payment_service not initialized on app.state")
+        raise HTTPException(
+            status_code=500, detail="Payment service not initialized"
+        )
 
     try:
         end_station_id, payment_charged = await end_ride(
@@ -139,9 +145,15 @@ async def end(request: Request, body: RideEndRequest) -> RideEndResponse:
         )
     except ValueError as exc:
         msg = str(exc)
-        if "not found" in msg or "does not have an active ride" in msg or "no station" in msg.lower():
+        if (
+            "not found" in msg
+            or "does not have an active ride" in msg
+            or "is not active" in msg
+            or "no station" in msg.lower()
+        ):
             raise HTTPException(status_code=404, detail=msg)
-
         raise HTTPException(status_code=400, detail=msg)
+    except PaymentProcessingError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
     return RideEndResponse(end_station_id=end_station_id, payment_charged=payment_charged)
