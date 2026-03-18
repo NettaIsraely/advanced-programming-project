@@ -46,7 +46,7 @@ def test_load_vehicles_branches_and_skips(tmp_path: Path) -> None:
     path = tmp_path / "vehicles.csv"
     path.write_text(
         "vehicle_id,station_id,vehicle_type,status,rides_since_last_treated,"
-        "last_treated_date,frame_number,has_child_seat,battery_level\n"
+        "last_treated_date,frame_number,has_child_seat,battery_health\n"
         # Missing vehicle_id -> skip (covers missing id branch)
         ",1,bicycle,available,0,2026-01-01,f0,true,10\n"
         # Invalid type -> skip (covers invalid vehicle_type branch)
@@ -55,9 +55,9 @@ def test_load_vehicles_branches_and_skips(tmp_path: Path) -> None:
         "badstatus,1,bicycle,maintenance,0,2026-01-01,f2,false,10\n"
         # Bike with missing frame_number -> fallback FRAME-{id}
         "b1,1,bicycle,available,5,2026-01-01,,yes,\n"
-        # EBike battery_level > 100 -> clamp to 100
+        # EBike battery_health > 100 -> clamp to 100
         "e1,1,electric_bicycle,in_use,3,2026-01-01,f4,,999\n"
-        # Scooter battery_level < 0 -> clamp to 0
+        # Scooter battery_health < 0 -> clamp to 0
         "s1,1,scooter,degraded,2,2026-01-01,f5,, -5\n",
         encoding="utf-8",
     )
@@ -75,8 +75,8 @@ def test_load_vehicles_branches_and_skips(tmp_path: Path) -> None:
     assert scooter._Vehicle__status == VehicleStatus.DEGRADED
 
     # clamp branches
-    assert ebike.battery_level == 100
-    assert scooter.battery_level == 0
+    assert ebike.battery_health == 100
+    assert scooter.battery_health == 0
 
     # ride_count assignment path
     assert bike.rides_since_last_treated == 5
@@ -156,7 +156,7 @@ async def test_app_lifespan_executes_and_sets_state(
             "last_treated_date",
             "frame_number",
             "has_child_seat",
-            "battery_level",
+            "battery_health",
         ],
         [
             ["v1", "1", "bicycle", "available", "0", "2026-01-01", "f1", "true", ""],

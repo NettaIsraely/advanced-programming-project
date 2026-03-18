@@ -205,13 +205,13 @@ class Bike(Vehicle):
 class EBike(Vehicle):
     """EBike subclass representing an electric bicycle."""
 
-    battery_level: int
+    battery_health: int
 
     def __init__(
         self,
         vehicle_id: str,
         frame_number: str,
-        battery_level: int = 100,
+        battery_health: int = 100,
         status: VehicleStatus = VehicleStatus.AVAILABLE,
     ):
         """
@@ -220,13 +220,13 @@ class EBike(Vehicle):
         Args:
             vehicle_id: Unique identifier for the e-bike
             frame_number: Frame number of the e-bike
-            battery_level: Battery level percentage (0-100, default: 100)
+            battery_health: Battery health percentage (0-100, default: 100)
             status: Current status of the e-bike (default: AVAILABLE)
         """
         super().__init__(vehicle_id, frame_number, status)
-        if not 0 <= battery_level <= 100:
-            raise ValueError("Battery level must be between 0 and 100")
-        self.battery_level = battery_level
+        if not 0 <= battery_health <= 100:
+            raise ValueError("Battery health must be between 0 and 100")
+        self.battery_health = battery_health
 
     @property
     def is_electric(self) -> bool:
@@ -245,20 +245,20 @@ class EBike(Vehicle):
         """
         # Check base maintenance conditions (rides or user report)
         base_maintenance = super().check_maintenance_needed(reports)
-        # Also check battery level
-        return base_maintenance or self.battery_level < 20
+        # Also check battery health
+        return base_maintenance or self.battery_health < 20
 
 
 class Scooter(Vehicle):
     """Scooter subclass representing an electric scooter."""
 
-    battery_level: int
+    battery_health: int
 
     def __init__(
         self,
         vehicle_id: str,
         frame_number: str,
-        battery_level: int = 100,
+        battery_health: int = 100,
         status: VehicleStatus = VehicleStatus.AVAILABLE,
     ):
         """
@@ -267,13 +267,13 @@ class Scooter(Vehicle):
         Args:
             vehicle_id: Unique identifier for the scooter
             frame_number: Frame number of the scooter
-            battery_level: Battery level percentage (0-100, default: 100)
+            battery_health: Battery health percentage (0-100, default: 100)
             status: Current status of the scooter (default: AVAILABLE)
         """
         super().__init__(vehicle_id, frame_number, status)
-        if not 0 <= battery_level <= 100:
-            raise ValueError("Battery level must be between 0 and 100")
-        self.battery_level = battery_level
+        if not 0 <= battery_health <= 100:
+            raise ValueError("Battery health must be between 0 and 100")
+        self.battery_health = battery_health
 
     @property
     def is_electric(self) -> bool:
@@ -292,8 +292,8 @@ class Scooter(Vehicle):
         """
         # Check base maintenance conditions (rides or user report)
         base_maintenance = super().check_maintenance_needed(reports)
-        # Also check battery level
-        return base_maintenance or self.battery_level < 20
+        # Also check battery health
+        return base_maintenance or self.battery_health < 20
 
     def get_required_treatments(self) -> list[TreatmentType]:
         return [TreatmentType.BATTERY_INSPECTION, TreatmentType.SCOOTER_FIRMWARE_UPDATE]
@@ -324,7 +324,7 @@ class VehicleFactory:
         *,
         status: VehicleStatus = VehicleStatus.AVAILABLE,
         has_child_seat: bool = False,
-        battery_level: int = 100,
+        battery_health: int = 100,
     ) -> Vehicle:
         """
         Create and return a Vehicle instance based on vehicle_type.
@@ -335,7 +335,7 @@ class VehicleFactory:
             frame_number: Frame number
             status: Vehicle status
             has_child_seat: Relevant only for Bike
-            battery_level: Relevant only for EBike/Scooter
+            battery_health: Relevant only for EBike/Scooter
 
         Returns:
             Vehicle instance
@@ -362,7 +362,7 @@ class VehicleFactory:
             return EBike(
                 vehicle_id=vehicle_id,
                 frame_number=frame_number,
-                battery_level=battery_level,
+                battery_health=battery_health,
                 status=status,
             )
 
@@ -370,7 +370,7 @@ class VehicleFactory:
             return Scooter(
                 vehicle_id=vehicle_id,
                 frame_number=frame_number,
-                battery_level=battery_level,
+                battery_health=battery_health,
                 status=status,
             )
 
