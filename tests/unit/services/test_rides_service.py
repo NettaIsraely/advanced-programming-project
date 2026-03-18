@@ -5,13 +5,13 @@ from __future__ import annotations
 import pytest
 
 from tlvflow.domain.enums import VehicleStatus
+from tlvflow.domain.payment_service import PaymentService
 from tlvflow.domain.stations import Station
 from tlvflow.domain.users import User
 from tlvflow.domain.vehicles import Bike
 from tlvflow.persistence.active_users_repository import ActiveUsersRepository
 from tlvflow.persistence.in_memory import StationRepository, VehicleRepository
 from tlvflow.persistence.rides_repository import RidesRepository
-from tlvflow.domain.payment_service import PaymentService
 from tlvflow.persistence.users_repository import UsersRepository
 from tlvflow.services.rides_service import end_ride, start_ride
 
