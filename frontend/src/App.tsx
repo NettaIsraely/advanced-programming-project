@@ -313,12 +313,9 @@ function App() {
     startNearestStation !== null &&
     startNearestStation.distance_m <= START_RIDE_STATION_THRESHOLD_M;
 
-  const doStartRideFromStation = async (
-    e: React.FormEvent,
-    stationId: number
-  ) => {
+  const doStartRideFromStation = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || !startUserPosition) return;
     setStartError(null);
     setStartSubmitLoading(true);
     try {
@@ -327,7 +324,8 @@ function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: user.user_id,
-          station_id: stationId,
+          lon: startUserPosition.lon,
+          lat: startUserPosition.lat,
         }),
       });
       const data = await res.json();
@@ -933,7 +931,7 @@ function App() {
                 {startAtStation ? (
                   <form
                     onSubmit={(e) =>
-                      doStartRideFromStation(e, startNearestStation.station_id)
+                      doStartRideFromStation(e)
                     }
                   >
                     <button

@@ -62,7 +62,8 @@ def test_e2e_register_start_ride_end_ride() -> None:
             "/ride/start",
             json={
                 "user_id": user_id,
-                "station_id": 1,
+                "lon": NEAR_STATION_1_LON,
+                "lat": NEAR_STATION_1_LAT,
             },
         )
         assert start.status_code == 201
@@ -101,18 +102,40 @@ def test_start_ride_user_already_on_ride_returns_409() -> None:
             "/ride/start",
             json={
                 "user_id": user_id,
-                "station_id": 1,
+                "lon": NEAR_STATION_1_LON,
+                "lat": NEAR_STATION_1_LAT,
             },
         )
         second = client.post(
             "/ride/start",
             json={
                 "user_id": user_id,
-                "station_id": 1,
+                "lon": NEAR_STATION_1_LON,
+                "lat": NEAR_STATION_1_LAT,
             },
         )
 
     assert second.status_code == 409
+
+
+def test_start_by_station_backward_compat() -> None:
+    """POST /ride/start-by-station with station_id works for backward compatibility."""
+    with _make_client() as client:
+        reg = client.post(
+            "/register", json=_register_payload(f"by-station-{uuid4().hex}@example.com")
+        )
+        assert reg.status_code == 201
+        user_id = reg.json()["user_id"]
+
+        start = client.post(
+            "/ride/start-by-station",
+            json={"user_id": user_id, "station_id": 1},
+        )
+        assert start.status_code == 201
+        data = start.json()
+        assert data["start_station_id"] == 1
+        assert "ride_id" in data
+        assert "vehicle_id" in data
 
 
 def test_start_ride_nonexistent_user_returns_404() -> None:
@@ -122,7 +145,8 @@ def test_start_ride_nonexistent_user_returns_404() -> None:
             "/ride/start",
             json={
                 "user_id": "nonexistent-user-id",
-                "station_id": 1,
+                "lon": NEAR_STATION_1_LON,
+                "lat": NEAR_STATION_1_LAT,
             },
         )
     assert resp.status_code == 404

@@ -13,6 +13,7 @@ from tlvflow.persistence.rides_repository import RidesRepository
 from tlvflow.persistence.users_repository import UsersRepository
 from tlvflow.services.stations_service import (
     distance_meters,
+    find_nearest_station_with_eligible_vehicle,
     find_nearest_station_with_free_slot,
 )
 
@@ -70,6 +71,56 @@ async def start_ride_by_vehicle(
     rides_repo.add(ride)
     active_users_repo.set_active(user_id, ride.ride_id)
     return (ride.ride_id, vehicle_id)
+
+
+async def start_ride_by_location(
+    user_id: str,
+    lon: float,
+    lat: float,
+    rides_repo: RidesRepository,
+    active_users_repo: ActiveUsersRepository,
+    station_repo: StationRepository,
+    users_repo: UsersRepository,
+    station_locks: defaultdict[int, asyncio.Lock] | None = None,
+) -> tuple[str, str, str, int]:
+    """
+    Start a ride from user location (PDF spec): find nearest station with an eligible
+    vehicle, checkout that vehicle, create ride. Returns (ride_id, vehicle_id, vehicle_type, start_station_id).
+    """
+    user = users_repo.get_by_id(user_id)
+    if not user:
+        raise ValueError(f"User {user_id} not found")
+    if active_users_repo.get_ride_id(user_id) is not None:
+        raise ValueError("User already has an active ride")
+
+    result = await find_nearest_station_with_eligible_vehicle(
+        station_repo,
+        lon=lon,
+        lat=lat,
+        station_locks=station_locks,
+    )
+    if result is None:
+        raise ValueError("No station with eligible vehicle found")
+
+    station, vehicle = result
+    vehicle.set_status(VehicleStatus.IN_USE)
+
+    ride = Ride(
+        user_id=user_id,
+        vehicle_id=vehicle.vehicle_id,
+        start_time=datetime.now(UTC),
+        start_latitude=station.latitude,
+        start_longitude=station.longitude,
+    )
+    rides_repo.add(ride)
+    active_users_repo.set_active(user_id, ride.ride_id)
+
+    return (
+        ride.ride_id,
+        vehicle.vehicle_id,
+        vehicle.vehicle_type(),
+        station.station_id,
+    )
 
 
 async def start_ride(

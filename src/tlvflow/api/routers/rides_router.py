@@ -8,6 +8,7 @@ from tlvflow.api.schemas import (
     RideEndResponse,
     RideHistoryItem,
     RideHistoryResponse,
+    RideStartByStationRequest,
     RideStartByVehicleRequest,
     RideStartRequest,
     RideStartResponse,
@@ -21,6 +22,7 @@ from tlvflow.services.rides_service import (
     _PERMISSION_DENIED_MSG,
     end_ride,
     start_ride,
+    start_ride_by_location,
     start_ride_by_vehicle,
 )
 
@@ -31,19 +33,16 @@ router = APIRouter()
 
 @router.post("/start", response_model=RideStartResponse, status_code=201)  # type: ignore[misc]
 async def start(request: Request, body: RideStartRequest) -> RideStartResponse:
-    """Start a new ride for a user from a specific station."""
+    """Start a ride from user location (PDF spec): find nearest station with eligible vehicle, assign vehicle, return station."""
 
-    # Fetching repos
     rides_repo = getattr(request.app.state, "rides_repository", None)
     active_users_repo = getattr(request.app.state, "active_users_repository", None)
     station_repo = getattr(request.app.state, "station_repository", None)
     users_repo = getattr(request.app.state, "users_repository", None)
 
-    # Validate repos
     if rides_repo is None or not isinstance(rides_repo, RidesRepository):
         logger.error("rides_repository not initialized on app.state")
         raise HTTPException(status_code=500, detail="Rides repository not initialized")
-
     if active_users_repo is None or not isinstance(
         active_users_repo, ActiveUsersRepository
     ):
@@ -51,15 +50,78 @@ async def start(request: Request, body: RideStartRequest) -> RideStartResponse:
         raise HTTPException(
             status_code=500, detail="Active users repository not initialized"
         )
-
     if station_repo is None or not isinstance(station_repo, StationRepository):
         logger.error("station_repository not initialized on app.state")
         raise HTTPException(
             status_code=500, detail="Station repository not initialized"
         )
-
     if users_repo is None or not isinstance(users_repo, UsersRepository):
         logger.error("users_repository not initialized on app.state")
+        raise HTTPException(status_code=500, detail="Users repository not initialized")
+
+    station_locks = getattr(request.app.state, "station_locks", None)
+    user_rides_locks = getattr(request.app.state, "user_rides_locks", None)
+    if station_locks is None or user_rides_locks is None:
+        raise HTTPException(
+            status_code=500, detail="Locks not initialized on app.state"
+        )
+
+    try:
+        async with user_rides_locks[body.user_id]:
+            ride_id, vehicle_id, vehicle_type, start_station_id = await start_ride_by_location(
+                user_id=body.user_id,
+                lon=body.lon,
+                lat=body.lat,
+                rides_repo=rides_repo,
+                active_users_repo=active_users_repo,
+                station_repo=station_repo,
+                users_repo=users_repo,
+                station_locks=station_locks,
+            )
+    except ValueError as exc:
+        msg = str(exc)
+        if "already has an active ride" in msg:
+            raise HTTPException(status_code=409, detail=msg)
+        if "not found" in msg or "no station" in msg.lower():
+            raise HTTPException(status_code=404, detail=msg)
+        raise HTTPException(status_code=400, detail=msg)
+
+    return RideStartResponse(
+        ride_id=ride_id,
+        vehicle_id=vehicle_id,
+        vehicle_type=vehicle_type,
+        start_station_id=start_station_id,
+    )
+
+
+@router.post(
+    "/start-by-station",
+    response_model=RideStartResponse,
+    status_code=201,
+)  # type: ignore[misc]
+async def start_by_station(
+    request: Request, body: RideStartByStationRequest
+) -> RideStartResponse:
+    """Start a ride from a specific station (by station_id). Kept for backwards compatibility."""
+
+    rides_repo = getattr(request.app.state, "rides_repository", None)
+    active_users_repo = getattr(request.app.state, "active_users_repository", None)
+    station_repo = getattr(request.app.state, "station_repository", None)
+    users_repo = getattr(request.app.state, "users_repository", None)
+
+    if rides_repo is None or not isinstance(rides_repo, RidesRepository):
+        raise HTTPException(status_code=500, detail="Rides repository not initialized")
+    if active_users_repo is None or not isinstance(
+        active_users_repo, ActiveUsersRepository
+    ):
+        raise HTTPException(
+            status_code=500, detail="Active users repository not initialized"
+        )
+    if station_repo is None or not isinstance(station_repo, StationRepository):
+        raise HTTPException(
+            status_code=500, detail="Station repository not initialized"
+        )
+    if users_repo is None or not isinstance(users_repo, UsersRepository):
         raise HTTPException(status_code=500, detail="Users repository not initialized")
 
     station_locks = getattr(request.app.state, "station_locks", None)
@@ -85,7 +147,6 @@ async def start(request: Request, body: RideStartRequest) -> RideStartResponse:
             raise HTTPException(status_code=409, detail=msg)
         if "not found" in msg or "no station" in msg.lower():
             raise HTTPException(status_code=404, detail=msg)
-
         raise HTTPException(status_code=400, detail=msg)
 
     return RideStartResponse(

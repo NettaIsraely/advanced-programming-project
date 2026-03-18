@@ -165,8 +165,9 @@ advanced-programming-project/
 | POST   | `/register`                | Register a new user (name, email, password, payment token) |
 | POST   | `/user/upgrade`            | Upgrade a user to Pro with license details               |
 | GET    | `/rides/active-users`      | List all users with an active ride                       |
-| POST   | `/ride/start`              | Start a ride — finds nearest station, assigns vehicle    |
-| POST   | `/ride/end`                | End a ride — docks vehicle, processes payment            |
+| POST   | `/ride/start`              | Start a ride from user location: body `{ user_id, lon, lat }`; finds nearest station with eligible vehicle, assigns vehicle, returns `ride_id`, `vehicle_id`, `vehicle_type`, `start_station_id`. |
+| POST   | `/ride/start-by-station`   | Start a ride from a specific station (body `{ user_id, station_id }`). Kept for backward compatibility. |
+| POST   | `/ride/end`                | End a ride — body `{ ride_id, lon, lat }`; docks at nearest station with free slot, processes payment            |
 | POST   | `/vehicle/treat`           | Batch-treat eligible and degraded vehicles               |
 | POST   | `/vehicle/report-degraded` | Report a vehicle as degraded during an active ride       |
 | GET    | `/stations/nearest`        | Find the nearest station to given coordinates            |

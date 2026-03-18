@@ -13,7 +13,11 @@ from tlvflow.persistence.active_users_repository import ActiveUsersRepository
 from tlvflow.persistence.in_memory import StationRepository, VehicleRepository
 from tlvflow.persistence.rides_repository import RidesRepository
 from tlvflow.persistence.users_repository import UsersRepository
-from tlvflow.services.rides_service import end_ride, start_ride
+from tlvflow.services.rides_service import (
+    end_ride,
+    start_ride,
+    start_ride_by_location,
+)
 
 
 def _make_user(user_id: str = "user-1") -> User:
@@ -94,6 +98,44 @@ async def test_start_ride_uses_requested_station() -> None:
     assert ride is not None
     assert ride.start_latitude == station1.latitude
     assert ride.start_longitude == station1.longitude
+
+
+async def test_start_ride_by_location_finds_nearest_station_with_eligible_vehicle() -> (
+    None
+):
+    """start_ride_by_location with (lon, lat) uses nearest station that has an eligible vehicle."""
+    users_repo = UsersRepository()
+    user = _make_user("u1")
+    users_repo.add(user)
+
+    bike = _make_bike("v1")
+    # Station 1 at (32.01, 34.01), station 2 at (32.02, 34.02). User at (32.015, 34.015) -> nearest is 1.
+    station1 = _make_station(1, vehicles=[bike])
+    bike._station_id = 1
+    station2 = _make_station(2, vehicles=[])
+    station_repo = StationRepository()
+    station_repo.add(station1)
+    station_repo.add(station2)
+
+    rides_repo = RidesRepository()
+    active_repo = ActiveUsersRepository()
+
+    ride_id, vehicle_id, vehicle_type, start_station_id = await start_ride_by_location(
+        user_id=user.user_id,
+        lon=34.015,
+        lat=32.015,
+        rides_repo=rides_repo,
+        active_users_repo=active_repo,
+        station_repo=station_repo,
+        users_repo=users_repo,
+        station_locks=None,
+    )
+
+    assert vehicle_id == "v1"
+    assert vehicle_type == "bike"
+    assert start_station_id == 1
+    assert ride_id
+    assert active_repo.get_ride_id(user.user_id) == ride_id
 
 
 async def test_start_ride_from_second_station_returns_vehicle_from_that_station() -> (
