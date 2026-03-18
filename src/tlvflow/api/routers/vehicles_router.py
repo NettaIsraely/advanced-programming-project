@@ -98,7 +98,7 @@ async def report_degraded(
         raise RuntimeError("active_users_repository not initialized")
 
     try:
-        report_degraded_vehicle(
+        await report_degraded_vehicle(
             user_id=body.user_id,
             vehicle_id=body.vehicle_id,
             rides_repo=rides_repo,

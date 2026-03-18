@@ -30,7 +30,7 @@ async def nearest_station(
             status_code=500, detail="Station repository not initialized"
         )
 
-    station = await find_nearest_station(repo, lon=lon, lat=lat)
+    station = find_nearest_station(repo, lon=lon, lat=lat)
     if station is None:
         raise HTTPException(status_code=404, detail="No stations available")
 
