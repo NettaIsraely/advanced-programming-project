@@ -1,6 +1,7 @@
 """Integration tests for ride endpoints: register -> start ride -> end ride."""
 
 from pathlib import Path
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
@@ -17,6 +18,7 @@ from tlvflow.services.link_vehicles import link_vehicles_to_stations
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 STATIONS_CSV = PROJECT_ROOT / "data" / "stations.csv"
 VEHICLES_CSV = PROJECT_ROOT / "data" / "vehicles.csv"
+
 
 def _register_payload(email: str = "alice@example.com") -> dict:
     return {
@@ -48,7 +50,9 @@ def _make_client() -> TestClient:
 def test_e2e_register_start_ride_end_ride() -> None:
     """End-to-end: register -> start ride -> end ride returns 201, 201, 200 with ride_id and fee."""
     with _make_client() as client:
-        reg = client.post("/register", json=_register_payload("e2e@example.com"))
+        reg = client.post(
+            "/register", json=_register_payload(f"e2e-{uuid4().hex}@example.com")
+        )
         assert reg.status_code == 201
         user_id = reg.json()["user_id"]
 
@@ -75,13 +79,15 @@ def test_e2e_register_start_ride_end_ride() -> None:
         end_data = end.json()
         assert end_data["ride_id"] == ride_id
         assert "fee" in end_data
-        assert isinstance(end_data["fee"], (int, float))
+        assert isinstance(end_data["fee"], int | float)
 
 
 def test_start_ride_user_already_on_ride_returns_409() -> None:
     """Starting a second ride without ending the first returns 409."""
     with _make_client() as client:
-        reg = client.post("/register", json=_register_payload("already@example.com"))
+        reg = client.post(
+            "/register", json=_register_payload(f"already-{uuid4().hex}@example.com")
+        )
         assert reg.status_code == 201
         user_id = reg.json()["user_id"]
 
@@ -121,7 +127,9 @@ def test_end_ride_nonexistent_user_returns_404() -> None:
 def test_end_ride_user_has_no_active_ride_returns_404() -> None:
     """Ending a ride when the user has no active ride (invalid ride_id context) returns 404."""
     with _make_client() as client:
-        reg = client.post("/register", json=_register_payload("noactive@example.com"))
+        reg = client.post(
+            "/register", json=_register_payload(f"noactive-{uuid4().hex}@example.com")
+        )
         assert reg.status_code == 201
         user_id = reg.json()["user_id"]
 
