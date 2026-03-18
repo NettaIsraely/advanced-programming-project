@@ -59,9 +59,17 @@ async def treat(request: Request) -> JSONResponse:
             content={"detail": "Degraded vehicles repository not initialized"},
         )
 
-    treated_ids = await treat_vehicles(
-        vehicles_repo, stations_repo, maintenance_repo, degraded_repo
-    )
+    treat_lock = getattr(request.app.state, "treat_vehicles_lock", None)
+    if treat_lock is None:
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Locks not initialized on app.state"},
+        )
+
+    async with treat_lock:
+        treated_ids = await treat_vehicles(
+            vehicles_repo, stations_repo, maintenance_repo, degraded_repo
+        )
     return JSONResponse(content={"treated_vehicles": treated_ids})
 
 
@@ -85,14 +93,19 @@ async def report_degraded(
     if degraded_repo is None:
         raise RuntimeError("degraded_vehicles_repository not initialized")
 
+    user_rides_locks = getattr(request.app.state, "user_rides_locks", None)
+    if user_rides_locks is None:
+        raise RuntimeError("user_rides_locks not initialized on app.state")
+
     try:
-        await report_degraded_vehicle(
-            user_id=body.user_id,
-            vehicle_id=body.vehicle_id,
-            rides_repo=rides_repo,
-            vehicles_repo=vehicles_repo,
-            degraded_repo=degraded_repo,
-        )
+        async with user_rides_locks[body.user_id]:
+            await report_degraded_vehicle(
+                user_id=body.user_id,
+                vehicle_id=body.vehicle_id,
+                rides_repo=rides_repo,
+                vehicles_repo=vehicles_repo,
+                degraded_repo=degraded_repo,
+            )
 
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
