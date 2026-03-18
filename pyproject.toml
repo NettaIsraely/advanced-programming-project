@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "tlvflow"
 version = "0.1.0"
 description = "TLV Flow - Vehicle management system"
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 dependencies = [
     "fastapi",
     "uvicorn",
@@ -31,8 +31,13 @@ target-version = "py312"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP"]
+# PEP 8: E (pycodestyle errors), W (pycodestyle warnings), F (Pyflakes), I (isort), UP (pyupgrade)
+select = ["E", "F", "I", "UP", "W"]
 ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["tlvflow"]
+force-single-line = false
 
 [tool.mypy]
 python_version = "3.12"

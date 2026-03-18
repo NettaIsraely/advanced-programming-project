@@ -1,3 +1,4 @@
+from tlvflow.domain.enums import VehicleStatus
 from tlvflow.domain.vehicles import Vehicle
 
 
@@ -71,6 +72,13 @@ class Station:
     def vehicles(self) -> tuple[Vehicle, ...]:
         return tuple(self._vehicles)
 
+    def has_eligible_vehicle(self) -> bool:
+        """True if at least one vehicle is rentable (AVAILABLE and rides_since_last_treated <= 10)."""
+        return any(
+            v.check_status() == VehicleStatus.AVAILABLE and not v.is_unrentable()
+            for v in self._vehicles
+        )
+
     # domain actions
     def dock(self, vehicle: Vehicle) -> None:
         if self.is_full:
@@ -91,6 +99,30 @@ class Station:
         vehicle = self._vehicles.pop()
         vehicle._station_id = None
         return vehicle
+
+    def checkout_eligible_vehicle(self) -> Vehicle:
+        """
+        Check out one eligible vehicle using deterministic selection.
+        Eligible: status == AVAILABLE and rides_since_last_treated <= 10.
+        Selection rule (documented): prefer bike, then ebike, then scooter; tie-break by vehicle_id.
+        """
+        eligible = [
+            v
+            for v in self._vehicles
+            if v.check_status() == VehicleStatus.AVAILABLE and not v.is_unrentable()
+        ]
+        if not eligible:
+            raise ValueError("Station has no eligible vehicle")
+        # Deterministic: type order bike=0, ebike=1, scooter=2, then vehicle_id
+        type_order = {"bike": 0, "ebike": 1, "scooter": 2}
+
+        def sort_key(v: Vehicle) -> tuple[int, str]:
+            return (type_order.get(v.vehicle_type(), 99), v.vehicle_id)
+
+        chosen = min(eligible, key=sort_key)
+        self._vehicles.remove(chosen)
+        chosen._station_id = None
+        return chosen
 
     # validation
     @staticmethod

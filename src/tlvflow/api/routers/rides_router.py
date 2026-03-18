@@ -8,6 +8,7 @@ from tlvflow.api.schemas import (
     RideStartRequest,
     RideStartResponse,
 )
+from tlvflow.domain.payment_service import PaymentProcessingError
 from tlvflow.persistence.active_users_repository import ActiveUsersRepository
 from tlvflow.persistence.in_memory import StationRepository, VehicleRepository
 from tlvflow.persistence.rides_repository import RidesRepository
@@ -16,10 +17,10 @@ from tlvflow.services.rides_service import end_ride, start_ride
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["rides"])
+router = APIRouter()
 
 
-@router.post("/rides/start", response_model=RideStartResponse, status_code=201)  # type: ignore[misc]
+@router.post("/start", response_model=RideStartResponse, status_code=201)  # type: ignore[misc]
 async def start(request: Request, body: RideStartRequest) -> RideStartResponse:
     """Start a new ride for a user from a specific station."""
 
@@ -60,20 +61,22 @@ async def start(request: Request, body: RideStartRequest) -> RideStartResponse:
         )
 
     try:
-        async with station_locks[body.station_id], user_rides_locks[body.user_id]:
-            ride_id, vehicle_id = await start_ride(
+        async with user_rides_locks[body.user_id]:
+            ride_id, vehicle_id, vehicle_type, start_station_id = await start_ride(
                 user_id=body.user_id,
-                station_id=body.station_id,
+                lon=body.lon,
+                lat=body.lat,
                 rides_repo=rides_repo,
                 active_users_repo=active_users_repo,
                 station_repo=station_repo,
                 users_repo=users_repo,
+                station_locks=station_locks,
             )
     except ValueError as exc:
         msg = str(exc)
         if "already has an active ride" in msg:
             raise HTTPException(status_code=409, detail=msg)
-        if "not found" in msg:
+        if "not found" in msg or "no station" in msg.lower():
             raise HTTPException(status_code=404, detail=msg)
 
         raise HTTPException(status_code=400, detail=msg)
@@ -81,12 +84,13 @@ async def start(request: Request, body: RideStartRequest) -> RideStartResponse:
     return RideStartResponse(
         ride_id=ride_id,
         vehicle_id=vehicle_id,
-        station_id=str(body.station_id),
+        vehicle_type=vehicle_type,
+        start_station_id=start_station_id,
     )
 
 
 @router.post(
-    "/rides/end",
+    "/end",
     response_model=RideEndResponse,
     status_code=200,
 )  # type: ignore[misc]
@@ -129,41 +133,52 @@ async def end(request: Request, body: RideEndRequest) -> RideEndResponse:
             status_code=500, detail="Station repository not initialized"
         )
 
-    user_rides_locks = getattr(request.app.state, "user_rides_locks", None)
+    payment_service = getattr(request.app.state, "payment_service", None)
+    if payment_service is None:
+        logger.error("payment_service not initialized on app.state")
+        raise HTTPException(status_code=500, detail="Payment service not initialized")
+
     station_locks = getattr(request.app.state, "station_locks", None)
-    if user_rides_locks is None or station_locks is None:
+    user_rides_locks = getattr(request.app.state, "user_rides_locks", None)
+    if station_locks is None or user_rides_locks is None:
         raise HTTPException(
             status_code=500, detail="Locks not initialized on app.state"
         )
 
+    ride = rides_repo.get_by_id(body.ride_id)
+    if ride is None:
+        raise HTTPException(status_code=404, detail="Ride not found")
+    user_id = ride.user_id
+
     try:
-        async with user_rides_locks[body.user_id]:
-            ride_id, fee = await end_ride(
-                user_id=body.user_id,
-                vehicle_id=body.vehicle_id,
+        async with user_rides_locks[user_id]:
+            end_station_id, payment_charged = await end_ride(
+                ride_id=body.ride_id,
+                lon=body.lon,
+                lat=body.lat,
                 rides_repo=rides_repo,
                 active_users_repo=active_users_repo,
+                station_repo=station_repo,
                 users_repo=users_repo,
                 vehicle_repo=vehicle_repo,
+                payment_service=payment_service,
+                station_locks=station_locks,
             )
-
-        # Acquire station lock to prevent concurrent docks from exceeding capacity
-        async with station_locks[body.station_id]:
-            station = station_repo.get_by_id(body.station_id)
-            vehicle = vehicle_repo.get_by_id(body.vehicle_id)
-            if station is None:
-                raise ValueError(f"Station {body.station_id} not found")
-            if vehicle is None:
-                raise ValueError(f"Vehicle {body.vehicle_id} not found")
-            if station.is_full:
-                raise ValueError(f"Station {body.station_id} is full")
-            station.dock(vehicle)
     except ValueError as exc:
         msg = str(exc)
-        if "not found" in msg or "does not have an active ride" in msg:
+        if (
+            "not found" in msg
+            or "does not have an active ride" in msg
+            or "is not active" in msg
+            or "no station" in msg.lower()
+        ):
             raise HTTPException(status_code=404, detail=msg)
         if "is full" in msg:
             raise HTTPException(status_code=409, detail=msg)
         raise HTTPException(status_code=400, detail=msg)
+    except PaymentProcessingError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
-    return RideEndResponse(ride_id=ride_id, fee=fee)
+    return RideEndResponse(
+        end_station_id=end_station_id, payment_charged=payment_charged
+    )

@@ -42,7 +42,7 @@ async def register(request: Request, body: RegisterRequest) -> RegisterResponse:
             name=body.name,
             email=body.email,
             password=body.password,
-            payment_method_id=body.payment_method_id or "",
+            payment_method_id=body.payment_method_id,
         )
     except ValueError as exc:
         msg = str(exc)
@@ -80,7 +80,7 @@ async def upgrade(request: Request, body: UpgradeRequest) -> UpgradeResponse:
         )
 
     try:
-        user_id = upgrade_user_to_pro(
+        user_id = await upgrade_user_to_pro(
             repo,
             user_id=body.user_id,
             license_number=body.license_number,
@@ -119,5 +119,5 @@ async def active_users(request: Request) -> JSONResponse:
             content={"detail": "Users repository not initialized"},
         )
 
-    users = get_active_users(active_users_repo, users_repo)
+    users = await get_active_users(active_users_repo, users_repo)
     return JSONResponse(content={"users": users})

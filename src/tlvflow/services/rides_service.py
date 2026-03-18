@@ -1,4 +1,9 @@
+from __future__ import annotations
+
+import asyncio
+from collections import defaultdict
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from tlvflow.domain.enums import VehicleStatus
 from tlvflow.domain.rides import Ride
@@ -6,60 +11,53 @@ from tlvflow.persistence.active_users_repository import ActiveUsersRepository
 from tlvflow.persistence.in_memory import StationRepository, VehicleRepository
 from tlvflow.persistence.rides_repository import RidesRepository
 from tlvflow.persistence.users_repository import UsersRepository
+from tlvflow.services.stations_service import (
+    find_nearest_station_with_eligible_vehicle,
+    find_nearest_station_with_free_slot,
+)
+
+if TYPE_CHECKING:
+    from tlvflow.domain.payment_service import PaymentService
 
 
 async def start_ride(
     user_id: str,
-    station_id: int,
+    lon: float,
+    lat: float,
     rides_repo: RidesRepository,
     active_users_repo: ActiveUsersRepository,
     station_repo: StationRepository,
     users_repo: UsersRepository,
-) -> tuple[str, str]:
+    station_locks: defaultdict[int, asyncio.Lock] | None = None,
+) -> tuple[str, str, str, int]:
     """
-    Start a new ride for a user from a given station.
-
-    Args:
-        user_id: The ID of the user starting the ride.
-        station_id: The ID of the station they are taking the vehicle from.
-        rides_repo: Repository to save the new ride.
-        active_users_repo: Repository to track users currently on a ride.
-        station_repo: Repository to fetch station and vehicle data.
-        users_repo: Repository to validate the user.
+    Start a new ride: find nearest station with eligible vehicle, checkout, set IN_USE.
 
     Returns:
-        A tuple of (ride_id, vehicle_id).
-
-    Raises:
-        ValueError: If validation fails (user not found, station empty, etc.)
+        (ride_id, vehicle_id, vehicle_type, start_station_id).
     """
-
-    # Validate the user exists
     user = users_repo.get_by_id(user_id)
     if not user:
         raise ValueError(f"User {user_id} not found")
 
-    # Check if the user already has an active ride
     if active_users_repo.get_ride_id(user_id) is not None:
         raise ValueError("User already has an active ride")
 
-    # Validate the station exists and has vehicles
-    station = station_repo.get_by_id(station_id)
-    if not station:
-        raise ValueError(f"Station {station_id} not found")
+    result = await find_nearest_station_with_eligible_vehicle(
+        station_repo,
+        lon=lon,
+        lat=lat,
+        station_locks=station_locks,
+    )
+    if result is None:
+        raise ValueError("No station with eligible vehicle found")
 
-    if station.is_empty:
-        raise ValueError(f"Station {station_id} has no available vehicles")
-
-    # Checkout a vehicle from the station
-    try:
-        vehicle_id = station.checkout_vehicle().vehicle_id
-    except Exception as e:
-        raise ValueError(f"Failed to checkout vehicle: {str(e)}")
+    station, vehicle = result
+    vehicle.set_status(VehicleStatus.IN_USE)
 
     ride = Ride(
         user_id=user_id,
-        vehicle_id=vehicle_id,
+        vehicle_id=vehicle.vehicle_id,
         start_time=datetime.now(UTC),
         start_latitude=station.latitude,
         start_longitude=station.longitude,
@@ -68,73 +66,80 @@ async def start_ride(
     rides_repo.add(ride)
     active_users_repo.set_active(user_id, ride.ride_id)
 
-    return (ride.ride_id, vehicle_id)
+    return (
+        ride.ride_id,
+        vehicle.vehicle_id,
+        vehicle.vehicle_type(),
+        station.station_id,
+    )
 
 
 async def end_ride(
-    user_id: str,
-    vehicle_id: str,
+    ride_id: str,
+    lon: float,
+    lat: float,
     rides_repo: RidesRepository,
     active_users_repo: ActiveUsersRepository,
+    station_repo: StationRepository,
     users_repo: UsersRepository,
     vehicle_repo: VehicleRepository,
-) -> tuple[str, float]:
+    payment_service: PaymentService | None,
+    station_locks: defaultdict[int, asyncio.Lock] | None = None,
+) -> tuple[int, float]:
     """
-    End an active ride for a user, calculate the fee, and release the vehicle.
-
-    Args:
-        user_id: The ID of the user ending the ride.
-        vehicle_id: The ID of the vehicle being returned.
-        rides_repo: Repository to fetch and update the ride.
-        active_users_repo: Repository to check and remove the user's active status.
-        users_repo: Repository to validate the user.
-        vehicle_repo: Repository to update the vehicle's status.
+    End ride by ride_id: find nearest station with free slot, dock vehicle, charge 15 ILS.
 
     Returns:
-        A tuple of (ride_id, fee).
-
-    Raises:
-        ValueError: If validation fails (user not found, no active ride, wrong vehicle).
+        (end_station_id, payment_charged).
     """
+    if payment_service is None:
+        raise ValueError("Payment service not initialized")
 
-    # Validate the user exists
+    ride = rides_repo.get_by_id(ride_id)
+    if not ride:
+        raise ValueError(f"Ride {ride_id} not found")
+    if not ride.is_active():
+        raise ValueError(f"Ride {ride_id} is not active")
+
+    user_id = ride.user_id
+    vehicle_id = ride.vehicle_id
+
+    station = await find_nearest_station_with_free_slot(
+        station_repo,
+        lon=lon,
+        lat=lat,
+    )
+    if station is None:
+        raise ValueError("No station with free slot found")
+
+    end_time = datetime.now(UTC)
+    ride.end(at=end_time)
+    ride.calculate_fee(duration=0.0, distance=0.0)  # sets fee to 15.0
+
     user = users_repo.get_by_id(user_id)
     if not user:
         raise ValueError(f"User {user_id} not found")
+    await payment_service.process_charge(
+        ride_id=ride.ride_id,
+        amount=15.0,
+        payment_method_id=user.payment_method_id,
+    )
 
-    # Get the user's active ride_id
-    ride_id = active_users_repo.get_ride_id(user_id)
-    if not ride_id:
-        raise ValueError(f"User {user_id} does not have an active ride")
-
-    # Fetch the actual Ride object
-    ride = rides_repo.get_by_id(ride_id)
-    if not ride:
-        raise ValueError(f"Active ride {ride_id} not found")
-
-    # Verify the vehicle ID matches the ongoing ride
-    if ride.vehicle_id != vehicle_id:
-        raise ValueError(
-            f"Provided vehicle_id ({vehicle_id}) does not match the active ride"
-        )
-
-    # End the ride using the domain model method
-    end_time = datetime.now(UTC)
-    ride.end(at=end_time)
-
-    # Calculate duration and fee
-    duration_minutes = (end_time - ride.start_time).total_seconds() / 60.0
-    placeholder_distance = 5.0  # As we have no real GPS tracking, we use a placeholder distance. In a real implementation, this would be calculated based on the start and end locations.
-    fee = ride.calculate_fee(duration=duration_minutes, distance=placeholder_distance)
-
-    # Update the vehicle status back to AVAILABLE
     vehicle = vehicle_repo.get_by_id(vehicle_id)
     if vehicle:
+        if station_locks is not None:
+            async with station_locks[station.station_id]:
+                st = station_repo.get_by_id(station.station_id)
+                if st is None:
+                    raise ValueError(f"Station {station.station_id} not found")
+                if st.is_full:
+                    raise ValueError("No station with free slot found")
+                st.dock(vehicle)
+        else:
+            station.dock(vehicle)
         vehicle.set_status(VehicleStatus.AVAILABLE)
         vehicle.rides_since_last_treated += 1
 
-    # Remove the user from the active users list
     active_users_repo.clear(user_id)
 
-    # Return the data required by RideEndResponse
-    return ride.ride_id, fee
+    return (station.station_id, 15.0)

@@ -70,7 +70,7 @@ async def treat(request: Request) -> JSONResponse:
         treated_ids = await treat_vehicles(
             vehicles_repo, stations_repo, maintenance_repo, degraded_repo
         )
-    return JSONResponse(content={"treated_vehicles": treated_ids})
+    return JSONResponse(content=treated_ids)
 
 
 @router.post("/vehicle/report-degraded", response_model=OkResponse)  # type: ignore[misc]
@@ -83,6 +83,7 @@ async def report_degraded(
     rides_repo = getattr(request.app.state, "rides_repository", None)
     vehicles_repo = getattr(request.app.state, "vehicle_repository", None)
     degraded_repo = getattr(request.app.state, "degraded_vehicles_repository", None)
+    active_users_repo = getattr(request.app.state, "active_users_repository", None)
 
     if rides_repo is None:
         raise RuntimeError("rides_repository not initialized")
@@ -92,6 +93,9 @@ async def report_degraded(
 
     if degraded_repo is None:
         raise RuntimeError("degraded_vehicles_repository not initialized")
+
+    if active_users_repo is None:
+        raise RuntimeError("active_users_repository not initialized")
 
     user_rides_locks = getattr(request.app.state, "user_rides_locks", None)
     if user_rides_locks is None:
@@ -105,8 +109,8 @@ async def report_degraded(
                 rides_repo=rides_repo,
                 vehicles_repo=vehicles_repo,
                 degraded_repo=degraded_repo,
+                active_users_repo=active_users_repo,
             )
-
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

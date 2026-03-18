@@ -1,19 +1,17 @@
-import asyncio
-
 from tlvflow.domain.stations import Station
 from tlvflow.persistence.in_memory import StationRepository
 from tlvflow.services.stations_service import find_nearest_station, station_to_dict
 
 
-def test_find_nearest_station_returns_none_when_repo_empty() -> None:
+async def test_find_nearest_station_returns_none_when_repo_empty() -> None:
     repo = StationRepository()
 
-    result = asyncio.run(find_nearest_station(repo, lon=34.0, lat=32.0))
+    result = await find_nearest_station(repo, lon=34.0, lat=32.0)
 
     assert result is None
 
 
-def test_find_nearest_station_returns_closest_station() -> None:
+async def test_find_nearest_station_returns_closest_station() -> None:
     repo = StationRepository()
     close_station = Station(
         station_id=1,
@@ -32,7 +30,7 @@ def test_find_nearest_station_returns_closest_station() -> None:
     repo.add(far_station)
     repo.add(close_station)
 
-    result = asyncio.run(find_nearest_station(repo, lon=34.01, lat=32.01))
+    result = await find_nearest_station(repo, lon=34.01, lat=32.01)
 
     assert result is close_station
 
