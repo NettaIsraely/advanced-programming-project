@@ -44,7 +44,10 @@ async def start_ride(
         raise ValueError("User already has an active ride")
 
     result = await find_nearest_station_with_eligible_vehicle(
-        station_repo, lon=lon, lat=lat, station_locks=station_locks,
+        station_repo,
+        lon=lon,
+        lat=lat,
+        station_locks=station_locks,
     )
     if result is None:
         raise ValueError("No station with eligible vehicle found")
@@ -102,7 +105,9 @@ async def end_ride(
     vehicle_id = ride.vehicle_id
 
     station = await find_nearest_station_with_free_slot(
-        station_repo, lon=lon, lat=lat,
+        station_repo,
+        lon=lon,
+        lat=lat,
     )
     if station is None:
         raise ValueError("No station with free slot found")
