@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import defaultdict
+
 from tlvflow.domain.stations import Station
 from tlvflow.domain.vehicles import Vehicle
 from tlvflow.persistence.in_memory import StationRepository

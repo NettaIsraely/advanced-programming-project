@@ -1,10 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 from collections import defaultdict
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
-
-import asyncio
 
 from tlvflow.domain.enums import VehicleStatus
 from tlvflow.domain.rides import Ride
