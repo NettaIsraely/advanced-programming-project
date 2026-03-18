@@ -27,7 +27,7 @@ async def register_user(
     return user.user_id
 
 
-def upgrade_user_to_pro(
+async def upgrade_user_to_pro(
     repo: UsersRepository,
     user_id: str,
     license_number: str,
@@ -50,7 +50,7 @@ def upgrade_user_to_pro(
     return pro.user_id
 
 
-def get_active_users(
+async def get_active_users(
     active_users_repo: ActiveUsersRepository,
     users_repo: UsersRepository,
 ) -> list[dict[str, Any]]:

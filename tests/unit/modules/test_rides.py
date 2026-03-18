@@ -142,6 +142,15 @@ def test_ride_degraded_payment_zero() -> None:
     assert r.fee == 0.0
 
 
+def test_ride_set_fee_for_degraded() -> None:
+    """set_fee(0) explicitly sets fee to 0 (e.g. degraded report = free ride)."""
+    r = make_ride()
+    r.calculate_fee(duration=5.0, distance=2.0)
+    assert r.fee == 15.0
+    r.set_fee(0.0)
+    assert r.fee == 0.0
+
+
 def test_ride_created_completed_with_fee_zero() -> None:
     """Ride created already ended with fee=0 (degraded) has COMPLETED status."""
     start = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
@@ -269,12 +278,12 @@ def test_ride_creation_invalid_float_field(value: object, name: str) -> None:
 
 
 def test_ride_calculate_fee_updates_fee_and_distance() -> None:
-    """calculate_fee updates distance and fee and returns fee."""
+    """calculate_fee sets fee to constant 15.0 ILS per ride (PDF spec)."""
     r = make_ride()
     fee = r.calculate_fee(duration=10.0, distance=2.0)
     assert r.distance == 2.0
     assert r.fee == fee
-    assert fee == 10.0 * 0.5 + 2.0 * 0.2
+    assert fee == 15.0
 
 
 def test_ride_status_and_is_active() -> None:

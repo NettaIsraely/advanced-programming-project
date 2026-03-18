@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 
 from tlvflow.domain.enums import VehicleStatus
 from tlvflow.domain.maintenance_event import MaintenanceEvent
+from tlvflow.persistence.active_users_repository import ActiveUsersRepository
 from tlvflow.persistence.degraded_vehicles_repository import DegradedVehiclesRepository
 from tlvflow.persistence.in_memory import StationRepository, VehicleRepository
 from tlvflow.persistence.rides_repository import RidesRepository
@@ -85,8 +86,8 @@ async def report_degraded_vehicle(
     rides_repo: RidesRepository,
     vehicles_repo: VehicleRepository,
     degraded_repo: DegradedVehiclesRepository,
+    active_users_repo: ActiveUsersRepository,
 ) -> None:
-
     rides = rides_repo.get_by_user_id(user_id)
 
     ride = next((r for r in rides if r.is_active()), None)
@@ -109,5 +110,7 @@ async def report_degraded_vehicle(
     del vehicles_repo._vehicles[vehicle_id]
     degraded_repo.add(vehicle)
 
-    # end ride with no charge
+    # End ride as free: no charge, user not penalized (PDF: degraded report = free ride).
     ride.end()
+    ride.set_fee(0.0)
+    active_users_repo.clear(user_id)

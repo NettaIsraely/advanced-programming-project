@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from tlvflow.api.routes import router as api_router
+from tlvflow.domain.payment_service import PaymentService
 from tlvflow.logging import setup_logging
 from tlvflow.persistence.active_users_repository import ActiveUsersRepository
 from tlvflow.persistence.degraded_vehicles_repository import (
@@ -90,6 +91,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.rides_repository = rides_repo
     app.state.maintenance_repository = maintenance_repo
     app.state.payments_repository = payments_repo
+    app.state.payment_service = PaymentService()
     app.state.degraded_vehicles_repository = degraded_vehicles_repo
     # Async locks to prevent race conditions: double-booking, station overflow, duplicate ride starts
     app.state.station_locks = defaultdict(asyncio.Lock)
