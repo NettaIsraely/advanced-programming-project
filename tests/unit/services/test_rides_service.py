@@ -97,8 +97,9 @@ async def test_start_ride_uses_requested_station() -> None:
     assert ride.start_longitude == station1.longitude
 
 
-async def test_start_ride_from_second_station_returns_vehicle_from_that_station(
-) -> None:
+async def test_start_ride_from_second_station_returns_vehicle_from_that_station() -> (
+    None
+):
     """When multiple stations exist, start_ride uses the requested station."""
     users_repo = UsersRepository()
     user = _make_user("u2")
