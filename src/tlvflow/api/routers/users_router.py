@@ -119,5 +119,5 @@ async def active_users(request: Request) -> JSONResponse:
             content={"detail": "Users repository not initialized"},
         )
 
-    users = await get_active_users(active_users_repo, users_repo)
+    users = get_active_users(active_users_repo, users_repo)
     return JSONResponse(content={"users": users})
