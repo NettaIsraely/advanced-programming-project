@@ -109,5 +109,6 @@ def report_degraded_vehicle(
     del vehicles_repo._vehicles[vehicle_id]
     degraded_repo.add(vehicle)
 
-    # end ride with no charge
+    # End ride as free: no charge, user not penalized (PDF: degraded report = free ride).
     ride.end()
+    ride.set_fee(0.0)

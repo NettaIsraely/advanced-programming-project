@@ -120,6 +120,10 @@ class Ride:
     def fee(self) -> float:
         return self.__fee
 
+    def set_fee(self, amount: float) -> None:
+        """Set the ride fee (e.g. 0 for degraded/free ride)."""
+        self.__fee = self._validate_float(amount, "fee")
+
     def calculate_fee(self, duration: float, distance: float) -> float:
         """Set and return the ride fee. PDF: constant 15 ILS per ride."""
         self.__distance = distance
