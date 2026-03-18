@@ -16,10 +16,10 @@ from tlvflow.services.rides_service import end_ride, start_ride
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["rides"])
+router = APIRouter()
 
 
-@router.post("/rides/start", response_model=RideStartResponse, status_code=201)  # type: ignore[misc]
+@router.post("/start", response_model=RideStartResponse, status_code=201)  # type: ignore[misc]
 async def start(request: Request, body: RideStartRequest) -> RideStartResponse:
     """Start a new ride for a user from a specific station."""
 
@@ -76,7 +76,7 @@ async def start(request: Request, body: RideStartRequest) -> RideStartResponse:
 
 
 @router.post(
-    "/rides/end",
+    "/end",
     response_model=RideEndResponse,
     status_code=200,
 )  # type: ignore[misc]
