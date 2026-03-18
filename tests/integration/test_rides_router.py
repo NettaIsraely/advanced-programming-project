@@ -1,5 +1,6 @@
 """Integration tests for ride endpoints: register -> start ride -> end ride."""
 
+import asyncio
 from pathlib import Path
 from uuid import uuid4
 
@@ -40,7 +41,7 @@ def _make_client() -> TestClient:
     vehicle_repo.load_from_csv(VEHICLES_CSV)
     station_repo.load_from_csv(STATIONS_CSV)
     degraded_repo = DegradedVehiclesRepository()
-    link_vehicles_to_stations(vehicle_repo, station_repo, degraded_repo)
+    asyncio.run(link_vehicles_to_stations(vehicle_repo, station_repo, degraded_repo))
 
     client = TestClient(app)
     client.app.state.users_repository = UsersRepository()

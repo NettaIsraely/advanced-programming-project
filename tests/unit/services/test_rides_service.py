@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-from unittest.mock import patch
-
 import pytest
 
 from tlvflow.domain.enums import VehicleStatus
@@ -14,6 +11,7 @@ from tlvflow.domain.vehicles import Bike
 from tlvflow.persistence.active_users_repository import ActiveUsersRepository
 from tlvflow.persistence.in_memory import StationRepository, VehicleRepository
 from tlvflow.persistence.rides_repository import RidesRepository
+from tlvflow.domain.payment_service import PaymentService
 from tlvflow.persistence.users_repository import UsersRepository
 from tlvflow.services.rides_service import end_ride, start_ride
 
@@ -62,7 +60,7 @@ def _make_bike(
 
 
 async def test_start_ride_uses_requested_station() -> None:
-    """Start ride uses the given station_id (nearest/caller-selected station)."""
+    """Start ride uses nearest station with eligible vehicle (by lon/lat)."""
     users_repo = UsersRepository()
     user = _make_user("u1")
     users_repo.add(user)
@@ -79,9 +77,10 @@ async def test_start_ride_uses_requested_station() -> None:
     rides_repo = RidesRepository()
     active_repo = ActiveUsersRepository()
 
-    ride_id, vehicle_id = await start_ride(
+    ride_id, vehicle_id, _, start_station_id = await start_ride(
         user_id=user.user_id,
-        station_id=1,
+        lon=station1.longitude,
+        lat=station1.latitude,
         rides_repo=rides_repo,
         active_users_repo=active_repo,
         station_repo=station_repo,
@@ -90,6 +89,7 @@ async def test_start_ride_uses_requested_station() -> None:
 
     assert vehicle_id == "v1"
     assert ride_id
+    assert start_station_id == 1
     assert active_repo.get_ride_id(user.user_id) == ride_id
     ride = rides_repo.get_by_id(ride_id)
     assert ride is not None
@@ -100,7 +100,7 @@ async def test_start_ride_uses_requested_station() -> None:
 async def test_start_ride_from_second_station_returns_vehicle_from_that_station() -> (
     None
 ):
-    """When multiple stations exist, start_ride uses the requested station."""
+    """When multiple stations exist, start_ride picks nearest by lon/lat."""
     users_repo = UsersRepository()
     user = _make_user("u2")
     users_repo.add(user)
@@ -122,9 +122,10 @@ async def test_start_ride_from_second_station_returns_vehicle_from_that_station(
     rides_repo = RidesRepository()
     active_repo = ActiveUsersRepository()
 
-    _, vehicle_id = await start_ride(
+    _, vehicle_id, _, start_station_id = await start_ride(
         user_id=user.user_id,
-        station_id=2,
+        lon=station2.longitude,
+        lat=station2.latitude,
         rides_repo=rides_repo,
         active_users_repo=active_repo,
         station_repo=station_repo,
@@ -132,6 +133,7 @@ async def test_start_ride_from_second_station_returns_vehicle_from_that_station(
     )
 
     assert vehicle_id == "v2"
+    assert start_station_id == 2
     assert station2.is_empty
     assert len(station1.vehicles) == 1
 
@@ -157,9 +159,10 @@ async def test_start_ride_with_eligible_vehicle_succeeds() -> None:
     rides_repo = RidesRepository()
     active_repo = ActiveUsersRepository()
 
-    ride_id, vehicle_id = await start_ride(
+    ride_id, vehicle_id, _, _ = await start_ride(
         user_id=user.user_id,
-        station_id=1,
+        lon=station.longitude,
+        lat=station.latitude,
         rides_repo=rides_repo,
         active_users_repo=active_repo,
         station_repo=station_repo,
@@ -174,7 +177,7 @@ async def test_start_ride_with_eligible_vehicle_succeeds() -> None:
 
 
 async def test_start_ride_vehicle_selection_returns_vehicle_from_station() -> None:
-    """Vehicle selection: returned vehicle was docked at the station (LIFO pop)."""
+    """Vehicle selection: returned vehicle was docked at the station."""
     users_repo = UsersRepository()
     user = _make_user("u4")
     users_repo.add(user)
@@ -193,9 +196,10 @@ async def test_start_ride_vehicle_selection_returns_vehicle_from_station() -> No
     rides_repo = RidesRepository()
     active_repo = ActiveUsersRepository()
 
-    _, vehicle_id = await start_ride(
+    _, vehicle_id, _, _ = await start_ride(
         user_id=user.user_id,
-        station_id=1,
+        lon=station.longitude,
+        lat=station.latitude,
         rides_repo=rides_repo,
         active_users_repo=active_repo,
         station_repo=station_repo,
@@ -210,7 +214,7 @@ async def test_start_ride_vehicle_selection_returns_vehicle_from_station() -> No
 
 
 async def test_end_ride_returns_calculated_fee() -> None:
-    """End ride calculates fee (payment) from duration and distance and returns it."""
+    """End ride returns end_station_id and fixed payment_charged (15 ILS)."""
     users_repo = UsersRepository()
     user = _make_user("u5")
     users_repo.add(user)
@@ -225,42 +229,32 @@ async def test_end_ride_returns_calculated_fee() -> None:
 
     rides_repo = RidesRepository()
     active_repo = ActiveUsersRepository()
+    payment_service = PaymentService()
 
-    start = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
-    end = datetime(2026, 1, 1, 12, 10, tzinfo=UTC)
+    ride_id, _, _, _ = await start_ride(
+        user_id=user.user_id,
+        lon=station.longitude,
+        lat=station.latitude,
+        rides_repo=rides_repo,
+        active_users_repo=active_repo,
+        station_repo=station_repo,
+        users_repo=users_repo,
+    )
 
-    with patch("tlvflow.services.rides_service.datetime") as mock_dt:
-        mock_dt.now.return_value = start
-        await start_ride(
-            user_id=user.user_id,
-            station_id=1,
-            rides_repo=rides_repo,
-            active_users_repo=active_repo,
-            station_repo=station_repo,
-            users_repo=users_repo,
-        )
+    end_station_id, payment_charged = await end_ride(
+        ride_id=ride_id,
+        lon=station.longitude,
+        lat=station.latitude,
+        rides_repo=rides_repo,
+        active_users_repo=active_repo,
+        station_repo=station_repo,
+        users_repo=users_repo,
+        vehicle_repo=vehicle_repo,
+        payment_service=payment_service,
+    )
 
-        ride_id = active_repo.get_ride_id(user.user_id)
-        assert ride_id is not None
-        ride = rides_repo.get_by_id(ride_id)
-        assert ride is not None
-
-        mock_dt.now.return_value = end
-        returned_ride_id, fee = await end_ride(
-            user_id=user.user_id,
-            vehicle_id="v_pay",
-            rides_repo=rides_repo,
-            active_users_repo=active_repo,
-            users_repo=users_repo,
-            vehicle_repo=vehicle_repo,
-        )
-
-    assert returned_ride_id == ride_id
-    duration_minutes = 10.0
-    placeholder_distance = 5.0
-    expected_fee = duration_minutes * 0.5 + placeholder_distance * 0.2
-    assert fee == expected_fee
-    assert ride.fee == expected_fee
+    assert end_station_id == 1
+    assert payment_charged == 15.0
 
 
 # --- End ride: rides_since_last_treated increment ---
@@ -283,9 +277,10 @@ async def test_end_ride_increments_rides_since_last_treated() -> None:
     rides_repo = RidesRepository()
     active_repo = ActiveUsersRepository()
 
-    await start_ride(
+    ride_id, _, _, _ = await start_ride(
         user_id=user.user_id,
-        station_id=1,
+        lon=station.longitude,
+        lat=station.latitude,
         rides_repo=rides_repo,
         active_users_repo=active_repo,
         station_repo=station_repo,
@@ -295,12 +290,15 @@ async def test_end_ride_increments_rides_since_last_treated() -> None:
     assert bike.rides_since_last_treated == 3
 
     await end_ride(
-        user_id=user.user_id,
-        vehicle_id="v_inc",
+        ride_id=ride_id,
+        lon=station.longitude,
+        lat=station.latitude,
         rides_repo=rides_repo,
         active_users_repo=active_repo,
+        station_repo=station_repo,
         users_repo=users_repo,
         vehicle_repo=vehicle_repo,
+        payment_service=PaymentService(),
     )
 
     assert bike.rides_since_last_treated == 4
@@ -327,9 +325,10 @@ async def test_end_ride_sets_vehicle_available_and_clears_active_user() -> None:
     rides_repo = RidesRepository()
     active_repo = ActiveUsersRepository()
 
-    await start_ride(
+    ride_id, _, _, _ = await start_ride(
         user_id=user.user_id,
-        station_id=1,
+        lon=station.longitude,
+        lat=station.latitude,
         rides_repo=rides_repo,
         active_users_repo=active_repo,
         station_repo=station_repo,
@@ -337,12 +336,15 @@ async def test_end_ride_sets_vehicle_available_and_clears_active_user() -> None:
     )
 
     await end_ride(
-        user_id=user.user_id,
-        vehicle_id="v_avail",
+        ride_id=ride_id,
+        lon=station.longitude,
+        lat=station.latitude,
         rides_repo=rides_repo,
         active_users_repo=active_repo,
+        station_repo=station_repo,
         users_repo=users_repo,
         vehicle_repo=vehicle_repo,
+        payment_service=PaymentService(),
     )
 
     assert vehicle_repo.get_by_id("v_avail").check_status() == VehicleStatus.AVAILABLE
@@ -353,7 +355,7 @@ async def test_end_ride_sets_vehicle_available_and_clears_active_user() -> None:
 
 
 async def test_start_ride_station_empty_raises() -> None:
-    """When station has no available vehicles, start_ride raises ValueError."""
+    """When no station has eligible vehicles, start_ride raises ValueError."""
     users_repo = UsersRepository()
     user = _make_user("u8")
     users_repo.add(user)
@@ -365,10 +367,11 @@ async def test_start_ride_station_empty_raises() -> None:
     rides_repo = RidesRepository()
     active_repo = ActiveUsersRepository()
 
-    with pytest.raises(ValueError, match="has no available vehicles"):
+    with pytest.raises(ValueError, match="No station with eligible vehicle found"):
         await start_ride(
             user_id=user.user_id,
-            station_id=1,
+            lon=station.longitude,
+            lat=station.latitude,
             rides_repo=rides_repo,
             active_users_repo=active_repo,
             station_repo=station_repo,
@@ -380,21 +383,21 @@ async def test_start_ride_station_empty_raises() -> None:
 
 
 async def test_start_ride_station_not_found_raises() -> None:
-    """When station_id does not exist, start_ride raises ValueError."""
+    """When no stations exist, start_ride raises ValueError."""
     users_repo = UsersRepository()
     user = _make_user("u9")
     users_repo.add(user)
 
     station_repo = StationRepository()
-    station_repo.add(_make_station(1, vehicles=[_make_bike("v1")]))
 
     rides_repo = RidesRepository()
     active_repo = ActiveUsersRepository()
 
-    with pytest.raises(ValueError, match="Station 99 not found"):
+    with pytest.raises(ValueError, match="No station with eligible vehicle found"):
         await start_ride(
             user_id=user.user_id,
-            station_id=99,
+            lon=34.0,
+            lat=32.0,
             rides_repo=rides_repo,
             active_users_repo=active_repo,
             station_repo=station_repo,
@@ -429,7 +432,8 @@ async def test_start_ride_user_already_on_ride_raises() -> None:
 
     await start_ride(
         user_id=user.user_id,
-        station_id=1,
+        lon=station1.longitude,
+        lat=station1.latitude,
         rides_repo=rides_repo,
         active_users_repo=active_repo,
         station_repo=station_repo,
@@ -439,7 +443,8 @@ async def test_start_ride_user_already_on_ride_raises() -> None:
     with pytest.raises(ValueError, match="already has an active ride"):
         await start_ride(
             user_id=user.user_id,
-            station_id=2,
+            lon=station2.longitude,
+            lat=station2.latitude,
             rides_repo=rides_repo,
             active_users_repo=active_repo,
             station_repo=station_repo,
@@ -451,45 +456,55 @@ async def test_start_ride_user_already_on_ride_raises() -> None:
 
 
 async def test_end_ride_nonexistent_user_raises() -> None:
-    """End ride with unknown user_id raises ValueError."""
+    """End ride with nonexistent ride_id raises ValueError."""
     users_repo = UsersRepository()
+    station_repo = StationRepository()
+    station_repo.add(_make_station(1, vehicles=[]))
     vehicle_repo = VehicleRepository()
     rides_repo = RidesRepository()
     active_repo = ActiveUsersRepository()
 
     with pytest.raises(ValueError, match="not found"):
         await end_ride(
-            user_id="nonexistent",
-            vehicle_id="v1",
+            ride_id="nonexistent-ride-id",
+            lon=34.0,
+            lat=32.0,
             rides_repo=rides_repo,
             active_users_repo=active_repo,
+            station_repo=station_repo,
             users_repo=users_repo,
             vehicle_repo=vehicle_repo,
+            payment_service=PaymentService(),
         )
 
 
 async def test_end_ride_user_has_no_active_ride_raises() -> None:
-    """End ride when user has no active ride raises ValueError."""
+    """End ride with fake ride_id (no active ride) raises ValueError."""
     users_repo = UsersRepository()
     user = _make_user("u11")
     users_repo.add(user)
+    station_repo = StationRepository()
+    station_repo.add(_make_station(1, vehicles=[]))
     vehicle_repo = VehicleRepository()
     rides_repo = RidesRepository()
     active_repo = ActiveUsersRepository()
 
-    with pytest.raises(ValueError, match="does not have an active ride"):
+    with pytest.raises(ValueError, match="not found"):
         await end_ride(
-            user_id=user.user_id,
-            vehicle_id="v_any",
+            ride_id="fake-ride-id",
+            lon=34.0,
+            lat=32.0,
             rides_repo=rides_repo,
             active_users_repo=active_repo,
+            station_repo=station_repo,
             users_repo=users_repo,
             vehicle_repo=vehicle_repo,
+            payment_service=PaymentService(),
         )
 
 
-async def test_end_ride_wrong_vehicle_id_raises() -> None:
-    """End ride with vehicle_id not matching the active ride raises ValueError."""
+async def test_end_ride_nonexistent_ride_id_raises() -> None:
+    """End ride with nonexistent ride_id raises ValueError."""
     users_repo = UsersRepository()
     user = _make_user("u12")
     users_repo.add(user)
@@ -507,21 +522,25 @@ async def test_end_ride_wrong_vehicle_id_raises() -> None:
 
     await start_ride(
         user_id=user.user_id,
-        station_id=1,
+        lon=station.longitude,
+        lat=station.latitude,
         rides_repo=rides_repo,
         active_users_repo=active_repo,
         station_repo=station_repo,
         users_repo=users_repo,
     )
 
-    with pytest.raises(ValueError, match="does not match the active ride"):
+    with pytest.raises(ValueError, match="not found"):
         await end_ride(
-            user_id=user.user_id,
-            vehicle_id="v_wrong",
+            ride_id="nonexistent-ride-id",
+            lon=station.longitude,
+            lat=station.latitude,
             rides_repo=rides_repo,
             active_users_repo=active_repo,
+            station_repo=station_repo,
             users_repo=users_repo,
             vehicle_repo=vehicle_repo,
+            payment_service=PaymentService(),
         )
 
 
@@ -530,8 +549,9 @@ async def test_end_ride_wrong_vehicle_id_raises() -> None:
 
 async def test_start_ride_nonexistent_user_raises() -> None:
     """Start ride with unknown user_id raises ValueError."""
+    station = _make_station(1, vehicles=[_make_bike("v1")])
     station_repo = StationRepository()
-    station_repo.add(_make_station(1, vehicles=[_make_bike("v1")]))
+    station_repo.add(station)
 
     rides_repo = RidesRepository()
     active_repo = ActiveUsersRepository()
@@ -540,7 +560,8 @@ async def test_start_ride_nonexistent_user_raises() -> None:
     with pytest.raises(ValueError, match="User .* not found"):
         await start_ride(
             user_id="no-such-user",
-            station_id=1,
+            lon=station.longitude,
+            lat=station.latitude,
             rides_repo=rides_repo,
             active_users_repo=active_repo,
             station_repo=station_repo,
