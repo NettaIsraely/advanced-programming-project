@@ -97,7 +97,8 @@ async def test_start_ride_uses_requested_station() -> None:
     assert ride.start_longitude == station1.longitude
 
 
-async def test_start_ride_from_second_station_returns_vehicle_from_that_station() -> None:
+async def test_start_ride_from_second_station_returns_vehicle_from_that_station(
+) -> None:
     """When multiple stations exist, start_ride uses the requested station."""
     users_repo = UsersRepository()
     user = _make_user("u2")
@@ -138,7 +139,7 @@ async def test_start_ride_from_second_station_returns_vehicle_from_that_station(
 
 
 async def test_start_ride_with_eligible_vehicle_succeeds() -> None:
-    """When station has an eligible vehicle (e.g. rides_since_last_treated <= 10), start succeeds."""
+    """Station with eligible vehicle (rides_since_last_treated <= 10) succeeds."""
     users_repo = UsersRepository()
     user = _make_user("u3")
     users_repo.add(user)
@@ -172,7 +173,7 @@ async def test_start_ride_with_eligible_vehicle_succeeds() -> None:
 
 
 async def test_start_ride_vehicle_selection_returns_vehicle_from_station() -> None:
-    """Vehicle selection: the returned vehicle is one that was docked at the station (LIFO pop)."""
+    """Vehicle selection: returned vehicle was docked at the station (LIFO pop)."""
     users_repo = UsersRepository()
     user = _make_user("u4")
     users_repo.add(user)
@@ -487,7 +488,7 @@ async def test_end_ride_user_has_no_active_ride_raises() -> None:
 
 
 async def test_end_ride_wrong_vehicle_id_raises() -> None:
-    """End ride with vehicle_id that does not match the active ride raises ValueError."""
+    """End ride with vehicle_id not matching the active ride raises ValueError."""
     users_repo = UsersRepository()
     user = _make_user("u12")
     users_repo.add(user)
