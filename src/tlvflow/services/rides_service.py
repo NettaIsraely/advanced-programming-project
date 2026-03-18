@@ -6,60 +6,43 @@ from tlvflow.persistence.active_users_repository import ActiveUsersRepository
 from tlvflow.persistence.in_memory import StationRepository, VehicleRepository
 from tlvflow.persistence.rides_repository import RidesRepository
 from tlvflow.persistence.users_repository import UsersRepository
+from tlvflow.services.stations_service import find_nearest_station_with_eligible_vehicle
 
 
 def start_ride(
     user_id: str,
-    station_id: int,
+    lon: float,
+    lat: float,
     rides_repo: RidesRepository,
     active_users_repo: ActiveUsersRepository,
     station_repo: StationRepository,
     users_repo: UsersRepository,
-) -> tuple[str, str]:
+) -> tuple[str, str, str, int]:
     """
-    Start a new ride for a user from a given station.
-
-    Args:
-        user_id: The ID of the user starting the ride.
-        station_id: The ID of the station they are taking the vehicle from.
-        rides_repo: Repository to save the new ride.
-        active_users_repo: Repository to track users currently on a ride.
-        station_repo: Repository to fetch station and vehicle data.
-        users_repo: Repository to validate the user.
+    Start a new ride: find nearest station with eligible vehicle, checkout, set IN_USE.
 
     Returns:
-        A tuple of (ride_id, vehicle_id).
-
-    Raises:
-        ValueError: If validation fails (user not found, station empty, etc.)
+        (ride_id, vehicle_id, vehicle_type, start_station_id).
     """
-
-    # Validate the user exists
     user = users_repo.get_by_id(user_id)
     if not user:
         raise ValueError(f"User {user_id} not found")
 
-    # Check if the user already has an active ride
     if active_users_repo.get_ride_id(user_id) is not None:
         raise ValueError("User already has an active ride")
 
-    # Validate the station exists and has vehicles
-    station = station_repo.get_by_id(station_id)
-    if not station:
-        raise ValueError(f"Station {station_id} not found")
+    result = find_nearest_station_with_eligible_vehicle(
+        station_repo, lon=lon, lat=lat
+    )
+    if result is None:
+        raise ValueError("No station with eligible vehicle found")
 
-    if station.is_empty:
-        raise ValueError(f"Station {station_id} has no available vehicles")
-
-    # Checkout a vehicle from the station
-    try:
-        vehicle_id = station.checkout_vehicle().vehicle_id
-    except Exception as e:
-        raise ValueError(f"Failed to checkout vehicle: {str(e)}")
+    station, vehicle = result
+    vehicle.set_status(VehicleStatus.IN_USE)
 
     ride = Ride(
         user_id=user_id,
-        vehicle_id=vehicle_id,
+        vehicle_id=vehicle.vehicle_id,
         start_time=datetime.now(UTC),
         start_latitude=station.latitude,
         start_longitude=station.longitude,
@@ -68,7 +51,12 @@ def start_ride(
     rides_repo.add(ride)
     active_users_repo.set_active(user_id, ride.ride_id)
 
-    return (ride.ride_id, vehicle_id)
+    return (
+        ride.ride_id,
+        vehicle.vehicle_id,
+        vehicle.vehicle_type(),
+        station.station_id,
+    )
 
 
 def end_ride(
