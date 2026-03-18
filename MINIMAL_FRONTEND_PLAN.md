@@ -22,8 +22,7 @@ Add a minimal single-page UI to the existing React + Vite frontend that calls th
 ## Decisions / clarifications
 
 1. **Register form — `payment_method_id`**
-   - Backend: schema has `payment_method_id: str | None = None`; router uses `body.payment_method_id or ""`. Backend does **not** distinguish missing vs `""`.
-   - **Decision:** When the field is left blank, **omit** the field from the JSON body entirely (do not send `payment_method_id`). Only include it when the user enters a value.
+   - **Decision:** **Payment method is required** for registration. Driver’s license (and thus Pro upgrade) is optional and handled separately via the upgrade flow.
 
 2. **Nearest station — lat/lon inputs**
    - Use `type="number"` with `step="any"` so the browser blocks non-numeric input.

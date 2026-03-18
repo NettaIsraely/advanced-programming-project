@@ -191,6 +191,10 @@ class User:
     def payment_method_id(self) -> str:
         return self._payment_method_id
 
+    def update_payment_method(self, new_id: str) -> None:
+        """Update the stored payment method id. Must be non-empty."""
+        self._payment_method_id = self._validate_payment_method_id(new_id)
+
     @property
     def current_ride(self) -> Any | None:
         return self._current_ride
@@ -350,7 +354,8 @@ class ProUser(User):
         return exp >= now
 
     def can_rent(self, vehicle: "Vehicle") -> bool:
-        return self.validate_license()
+        """Pro users can rent any vehicle (license was verified at upgrade)."""
+        return True
 
     @staticmethod
     def _validate_license_number(license_number: str) -> str:

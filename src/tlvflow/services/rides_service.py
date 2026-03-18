@@ -19,6 +19,58 @@ from tlvflow.services.stations_service import (
 if TYPE_CHECKING:
     from tlvflow.domain.payment_service import PaymentService
 
+_PERMISSION_DENIED_MSG = (
+    "You are not permitted to rent this vehicle. Upgrade to Pro for electric vehicles."
+)
+
+
+async def start_ride_by_vehicle(
+    user_id: str,
+    vehicle_id: str,
+    rides_repo: RidesRepository,
+    active_users_repo: ActiveUsersRepository,
+    station_repo: StationRepository,
+    vehicle_repo: VehicleRepository,
+    users_repo: UsersRepository,
+) -> tuple[str, str]:
+    """
+    Start a ride by vehicle id (user scans/enters vehicle number). The vehicle must be
+    at a station. Checks user.can_rent(vehicle); raises with _PERMISSION_DENIED_MSG if not allowed.
+    """
+    user = users_repo.get_by_id(user_id)
+    if not user:
+        raise ValueError(f"User {user_id} not found")
+    if active_users_repo.get_ride_id(user_id) is not None:
+        raise ValueError("User already has an active ride")
+
+    vehicle = vehicle_repo.get_by_id(vehicle_id)
+    if not vehicle:
+        raise ValueError(f"Vehicle {vehicle_id} not found")
+    if not user.can_rent(vehicle):
+        raise ValueError(_PERMISSION_DENIED_MSG)
+    sid = vehicle.station_id
+    if sid is None:
+        raise ValueError(f"Vehicle {vehicle_id} is not at a station")
+
+    station = station_repo.get_by_id(sid)
+    if not station:
+        raise ValueError(f"Station {sid} not found")
+    try:
+        station.checkout_vehicle_by_id(vehicle_id)
+    except ValueError as e:
+        raise ValueError(str(e)) from e
+
+    ride = Ride(
+        user_id=user_id,
+        vehicle_id=vehicle_id,
+        start_time=datetime.now(UTC),
+        start_latitude=station.latitude,
+        start_longitude=station.longitude,
+    )
+    rides_repo.add(ride)
+    active_users_repo.set_active(user_id, ride.ride_id)
+    return (ride.ride_id, vehicle_id)
+
 
 async def start_ride(
     user_id: str,

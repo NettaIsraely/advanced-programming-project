@@ -57,6 +57,33 @@ class RegisterResponse(BaseModel):
     user_id: str
 
 
+class LoginRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    user_id: str
+    name: str
+    is_pro: bool
+
+
+class ProfileResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    user_id: str
+    name: str
+    email: str
+    payment_method_id: str
+    is_pro: bool
+
+
+class UpdatePaymentMethodRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    payment_method_id: str = Field(min_length=1)
+
+
 class UpgradeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -78,6 +105,13 @@ class RideStartRequest(BaseModel):
     user_id: str = Field(min_length=1)
     lon: float
     lat: float
+
+
+class RideStartByVehicleRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    user_id: str = Field(min_length=1)
+    vehicle_id: str = Field(min_length=1)
 
 
 class RideStartResponse(BaseModel):
@@ -102,6 +136,31 @@ class RideEndResponse(BaseModel):
 
     end_station_id: int
     payment_charged: float
+
+
+class ActiveRideResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ride_id: str
+    vehicle_id: str
+    start_time: str
+
+
+class RideHistoryItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ride_id: str
+    vehicle_id: str
+    start_time: str
+    end_time: str
+    fee: float
+    status: str
+
+
+class RideHistoryResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    rides: list[RideHistoryItem]
 
 
 # Vehicle report degraded

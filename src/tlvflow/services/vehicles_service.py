@@ -87,30 +87,49 @@ async def report_degraded_vehicle(
     vehicles_repo: VehicleRepository,
     degraded_repo: DegradedVehiclesRepository,
     active_users_repo: ActiveUsersRepository,
+    station_repo: StationRepository | None = None,
 ) -> None:
     rides = rides_repo.get_by_user_id(user_id)
+    active_ride = next((r for r in rides if r.is_active()), None)
 
-    ride = next((r for r in rides if r.is_active()), None)
+    if active_ride is not None and active_ride.vehicle_id == vehicle_id:
+        # During active ride: end ride at no charge and mark vehicle degraded
+        vehicle = vehicles_repo._vehicles.get(vehicle_id)
+        if vehicle is None:
+            raise LookupError("vehicle not found")
+        vehicle.set_status(VehicleStatus.DEGRADED)
+        del vehicles_repo._vehicles[vehicle_id]
+        degraded_repo.add(vehicle)
+        active_ride.end()
+        active_ride.set_fee(0.0)
+        active_users_repo.clear(user_id)
+        return
 
-    if ride is None:
+    # No active ride with this vehicle: allow only if vehicle_id is user's last completed ride
+    completed = [r for r in rides if r.end_time is not None]
+    if not completed:
+        raise ValueError("no active ride")
+    last_ride = max(completed, key=lambda r: r.end_time or r.start_time)
+    if last_ride.vehicle_id != vehicle_id:
         raise ValueError("no active ride")
 
-    if ride.vehicle_id != vehicle_id:
-        raise ValueError("no active ride")
+    if station_repo is None:
+        raise ValueError("station repository required for reporting last ride")
 
     vehicle = vehicles_repo._vehicles.get(vehicle_id)
-
     if vehicle is None:
         raise LookupError("vehicle not found")
 
-    # mark vehicle as degraded
-    vehicle.set_status(VehicleStatus.DEGRADED)
+    # Undock from station (vehicle was docked when ride ended)
+    for station in station_repo.get_all():
+        for v in station.vehicles:
+            if v.vehicle_id == vehicle_id:
+                station.undock(vehicle)
+                break
+        else:
+            continue
+        break
 
-    # move vehicle to degraded repo
+    vehicle.set_status(VehicleStatus.DEGRADED)
     del vehicles_repo._vehicles[vehicle_id]
     degraded_repo.add(vehicle)
-
-    # End ride as free: no charge, user not penalized (PDF: degraded report = free ride).
-    ride.end()
-    ride.set_fee(0.0)
-    active_users_repo.clear(user_id)

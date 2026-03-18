@@ -211,13 +211,16 @@ def test_prouser_validate_license_expired():
     assert pro.validate_license(at=datetime.now(UTC)) is False
 
 
-# tests ProUser.can_rent delegates to validate_license
-def test_prouser_can_rent_depends_on_license_validity():
+# tests ProUser.can_rent allows any vehicle (license verified at upgrade)
+def test_prouser_can_rent_any_vehicle():
     pro_valid = make_prouser(license_expiry=datetime.now(UTC) + timedelta(days=1))
     pro_expired = make_prouser(license_expiry=datetime.now(UTC) - timedelta(days=1))
 
     assert pro_valid.can_rent(DummyVehicle(is_electric=True)) is True
-    assert pro_expired.can_rent(DummyVehicle(is_electric=False)) is False
+    assert pro_valid.can_rent(DummyVehicle(is_electric=False)) is True
+    # Pro status alone allows rent; license expiry is not re-checked per ride
+    assert pro_expired.can_rent(DummyVehicle(is_electric=True)) is True
+    assert pro_expired.can_rent(DummyVehicle(is_electric=False)) is True
 
 
 # tests license validators enforce types/stripping

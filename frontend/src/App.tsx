@@ -1,5 +1,51 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { apiUrl } from "./api";
+import { ToastContainer, useToasts } from "./Toast";
+
+const USER_STORAGE_KEY = "tlvflow_user";
+const DEFAULT_LAT = 32.0853;
+const DEFAULT_LON = 34.7818;
+const END_RIDE_STATION_THRESHOLD_M = 300;
+
+function haversineDistanceMetres(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371000;
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(Δφ / 2) ** 2 +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+type View =
+  | "auth"
+  | "home"
+  | "findStation"
+  | "startRide"
+  | "endRide"
+  | "profile"
+  | "rideHistory"
+  | "upgradePro"
+  | "reportVehicle";
+
+interface User {
+  user_id: string;
+  name: string;
+  is_pro: boolean;
+}
+
+interface ActiveRide {
+  ride_id: string;
+  vehicle_id: string;
+}
 
 function formatErrorDetail(detail: unknown): string {
   if (typeof detail === "string") return detail;
@@ -15,36 +61,127 @@ function formatErrorDetail(detail: unknown): string {
   return String(detail);
 }
 
-function CopyButton({ value }: { value: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = () => {
-    navigator.clipboard.writeText(value).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
-  return (
-    <button type="button" className="btn btn-copy" onClick={copy}>
-      {copied ? "Copied" : "Copy"}
-    </button>
-  );
+function loadUser(): User | null {
+  try {
+    const raw = sessionStorage.getItem(USER_STORAGE_KEY);
+    if (!raw) return null;
+    const u = JSON.parse(raw) as User;
+    return u?.user_id && u?.name !== undefined && typeof u?.is_pro === "boolean"
+      ? u
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveUser(user: User | null) {
+  if (user) sessionStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+  else sessionStorage.removeItem(USER_STORAGE_KEY);
 }
 
 function App() {
-  const [currentUserId, setCurrentUserId] = useState("");
+  const { toasts, add: addToast, remove: removeToast } = useToasts();
+  const [view, setView] = useState<View>("auth");
+  const [user, setUser] = useState<User | null>(loadUser);
+  const [activeRide, setActiveRide] = useState<ActiveRide | null>(null);
 
-  const [healthResult, setHealthResult] = useState<string | null>(null);
-  const [healthError, setHealthError] = useState<string | null>(null);
+  const fetchActiveRide = useCallback(async (userId: string) => {
+    try {
+      const res = await fetch(
+        apiUrl(`/ride/rides/active?user_id=${encodeURIComponent(userId)}`)
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setActiveRide({ ride_id: data.ride_id, vehicle_id: data.vehicle_id });
+      } else {
+        setActiveRide(null);
+      }
+    } catch {
+      setActiveRide(null);
+    }
+  }, []);
 
-  const [registerName, setRegisterName] = useState("");
-  const [registerEmail, setRegisterEmail] = useState("");
-  const [registerPassword, setRegisterPassword] = useState("");
-  const [registerPaymentMethodId, setRegisterPaymentMethodId] = useState("");
-  const [registerResult, setRegisterResult] = useState<{ user_id: string } | null>(null);
-  const [registerError, setRegisterError] = useState<string | null>(null);
+  useEffect(() => {
+    if (user?.user_id) fetchActiveRide(user.user_id);
+    else setActiveRide(null);
+  }, [user?.user_id, fetchActiveRide]);
 
-  const [nearestLat, setNearestLat] = useState("");
-  const [nearestLon, setNearestLon] = useState("");
+  useEffect(() => {
+    if (user) saveUser(user);
+  }, [user]);
+
+  // Auth
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [signupName, setSignupName] = useState("");
+  const [signupEmail, setSignupEmail] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
+  const [signupPaymentId, setSignupPaymentId] = useState("");
+  const [signupError, setSignupError] = useState<string | null>(null);
+  const [authTab, setAuthTab] = useState<"login" | "signup">("login");
+
+  const doLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError(null);
+    try {
+      const res = await fetch(apiUrl("/login"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: loginEmail, password: loginPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(formatErrorDetail(data.detail ?? data));
+      setUser({
+        user_id: data.user_id,
+        name: data.name,
+        is_pro: data.is_pro ?? false,
+      });
+      setView("home");
+    } catch (err) {
+      setLoginError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const doSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSignupError(null);
+    const body = {
+      name: signupName,
+      email: signupEmail,
+      password: signupPassword,
+      payment_method_id: signupPaymentId.trim(),
+    };
+    try {
+      const reg = await fetch(apiUrl("/register"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const regData = await reg.json();
+      if (!reg.ok) throw new Error(formatErrorDetail(regData.detail ?? regData));
+      const loginRes = await fetch(apiUrl("/login"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: signupEmail, password: signupPassword }),
+      });
+      const loginData = await loginRes.json();
+      if (!loginRes.ok) {
+        setUser({ user_id: regData.user_id, name: signupName, is_pro: false });
+      } else {
+        setUser({
+          user_id: loginData.user_id,
+          name: loginData.name,
+          is_pro: loginData.is_pro ?? false,
+        });
+      }
+      setView("home");
+    } catch (err) {
+      setSignupError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  // Find nearest station
   const [nearestResult, setNearestResult] = useState<{
     station_id: number;
     name: string;
@@ -57,376 +194,882 @@ function App() {
   } | null>(null);
   const [nearestError, setNearestError] = useState<string | null>(null);
 
-  const [startUserId, setStartUserId] = useState("");
-  const [startStationId, setStartStationId] = useState("");
-  const [startResult, setStartResult] = useState<{
-    ride_id: string;
-    vehicle_id: string;
-    station_id: string;
-  } | null>(null);
-  const [startError, setStartError] = useState<string | null>(null);
-
-  const [endUserId, setEndUserId] = useState("");
-  const [endVehicleId, setEndVehicleId] = useState("");
-  const [endStationId, setEndStationId] = useState("");
-  const [endResult, setEndResult] = useState<{ ride_id: string; fee: number } | null>(null);
-  const [endError, setEndError] = useState<string | null>(null);
-
-  const [activeUsersResult, setActiveUsersResult] = useState<{ users: unknown[] } | null>(null);
-  const [activeUsersError, setActiveUsersError] = useState<string | null>(null);
-
-  const checkHealth = async () => {
-    setHealthError(null);
-    setHealthResult(null);
-    try {
-      const res = await fetch(apiUrl("/health"));
-      const data = await res.json();
-      if (!res.ok) throw new Error(formatErrorDetail(data.detail ?? data));
-      setHealthResult(data.status ?? "ok");
-    } catch (e) {
-      setHealthError(e instanceof Error ? e.message : String(e));
-    }
-  };
-
-  const register = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setRegisterError(null);
-    setRegisterResult(null);
-    const body: { name: string; email: string; password: string; payment_method_id?: string } = {
-      name: registerName,
-      email: registerEmail,
-      password: registerPassword,
-    };
-    if (registerPaymentMethodId.trim() !== "") body.payment_method_id = registerPaymentMethodId.trim();
-    try {
-      const res = await fetch(apiUrl("/register"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(formatErrorDetail(data.detail ?? data));
-      setRegisterResult(data);
-    } catch (e) {
-      setRegisterError(e instanceof Error ? e.message : String(e));
-    }
-  };
-
-  const useAsCurrentUser = (userId: string) => {
-    setCurrentUserId(userId);
-    setStartUserId(userId);
-    setEndUserId(userId);
-  };
-
-  const findNearest = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const findNearest = useCallback(async (lat: number, lon: number) => {
     setNearestError(null);
     setNearestResult(null);
-    const lat = Number(nearestLat);
-    const lon = Number(nearestLon);
-    if (Number.isNaN(lat) || Number.isNaN(lon)) {
-      setNearestError("Lat and lon must be numbers");
-      return;
-    }
     try {
       const res = await fetch(apiUrl(`/stations/nearest?lat=${lat}&lon=${lon}`));
       const data = await res.json();
       if (!res.ok) throw new Error(formatErrorDetail(data.detail ?? data));
       setNearestResult(data);
-    } catch (e) {
-      setNearestError(e instanceof Error ? e.message : String(e));
+    } catch (err) {
+      setNearestError(err instanceof Error ? err.message : String(err));
     }
+  }, []);
+
+  const useMyLocation = () => {
+    if (!navigator.geolocation) {
+      findNearest(DEFAULT_LAT, DEFAULT_LON);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => findNearest(pos.coords.latitude, pos.coords.longitude),
+      () => findNearest(DEFAULT_LAT, DEFAULT_LON)
+    );
   };
 
-  const startRide = async (e: React.FormEvent) => {
+  // Start ride by vehicle
+  const [vehicleId, setVehicleId] = useState("");
+  const [startError, setStartError] = useState<string | null>(null);
+
+  const doStartRide = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     setStartError(null);
-    setStartResult(null);
-    const stationId = Number(startStationId);
-    if (Number.isNaN(stationId) || stationId < 1) {
-      setStartError("Station ID must be a positive number");
-      return;
-    }
     try {
-      const res = await fetch(apiUrl("/rides/start"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: startUserId, station_id: stationId }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(formatErrorDetail(data.detail ?? data));
-      setStartResult(data);
-    } catch (e) {
-      setStartError(e instanceof Error ? e.message : String(e));
-    }
-  };
-
-  const endRide = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setEndError(null);
-    setEndResult(null);
-    const stationId = Number(endStationId);
-    if (Number.isNaN(stationId) || stationId < 1) {
-      setEndError("Station ID must be a positive number");
-      return;
-    }
-    try {
-      const res = await fetch(apiUrl("/rides/end"), {
+      const res = await fetch(apiUrl("/ride/start-by-vehicle"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          user_id: endUserId,
-          vehicle_id: endVehicleId,
-          station_id: stationId,
+          user_id: user.user_id,
+          vehicle_id: vehicleId.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (res.status === 403) {
+        const msg = formatErrorDetail(data.detail ?? data);
+        addToast("error", msg);
+        setStartError(msg);
+        return;
+      }
+      if (!res.ok) throw new Error(formatErrorDetail(data.detail ?? data));
+      setActiveRide({ ride_id: data.ride_id, vehicle_id: data.vehicle_id });
+      addToast("success", "Ride started");
+      setView("home");
+      setVehicleId("");
+    } catch (err) {
+      setStartError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  // End ride: photo required, must be at station (within threshold)
+  const [endError, setEndError] = useState<string | null>(null);
+  const [endLoading, setEndLoading] = useState(false);
+  const [endPhoto, setEndPhoto] = useState<string | null>(null);
+  const [endNearestStation, setEndNearestStation] = useState<{
+    station_id: number;
+    name: string;
+    lat: number;
+    lon: number;
+    distance_m: number;
+  } | null>(null);
+  const [endLocationLoading, setEndLocationLoading] = useState(false);
+  const endAtStation =
+    endNearestStation !== null &&
+    endNearestStation.distance_m <= END_RIDE_STATION_THRESHOLD_M;
+
+  const loadEndRideNearest = useCallback(() => {
+    if (!user || !activeRide) return;
+    setEndError(null);
+    setEndNearestStation(null);
+    setEndLocationLoading(true);
+    const resolveLocation = (): Promise<{ lat: number; lon: number }> =>
+      new Promise((resolve) => {
+        if (!navigator.geolocation)
+          return resolve({ lat: DEFAULT_LAT, lon: DEFAULT_LON });
+        navigator.geolocation.getCurrentPosition(
+          (p) =>
+            resolve({
+              lat: p.coords.latitude,
+              lon: p.coords.longitude,
+            }),
+          () => resolve({ lat: DEFAULT_LAT, lon: DEFAULT_LON })
+        );
+      });
+    resolveLocation()
+      .then((latLon) =>
+        fetch(
+          apiUrl(`/stations/nearest?lat=${latLon.lat}&lon=${latLon.lon}`)
+        ).then((r) => r.json().then((data: { station_id: number; name: string; lat: number; lon: number }) => ({ ok: r.ok, data, latLon })))
+      )
+      .then(({ ok, data, latLon }) => {
+        if (!ok) {
+          setEndError("Could not find nearest station.");
+          setEndLocationLoading(false);
+          return;
+        }
+        const distance_m = haversineDistanceMetres(
+          latLon.lat,
+          latLon.lon,
+          data.lat,
+          data.lon
+        );
+        setEndNearestStation({
+          station_id: data.station_id,
+          name: data.name,
+          lat: data.lat,
+          lon: data.lon,
+          distance_m: Math.round(distance_m),
+        });
+        setEndError(null);
+      })
+      .catch(() => {
+        setEndError("Location error.");
+      })
+      .finally(() => setEndLocationLoading(false));
+  }, [user, activeRide]);
+
+  useEffect(() => {
+    if (view === "endRide" && activeRide) {
+      setEndPhoto(null);
+      setEndNearestStation(null);
+      loadEndRideNearest();
+    }
+  }, [view, activeRide, loadEndRideNearest]);
+
+  const doEndRide = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !activeRide) return;
+    if (!endPhoto) {
+      setEndError("Please take a picture of the vehicle before ending the ride.");
+      return;
+    }
+    if (!endAtStation || !endNearestStation) {
+      setEndError("You must be at a station to end the ride.");
+      return;
+    }
+    setEndError(null);
+    setEndLoading(true);
+    try {
+      const res = await fetch(apiUrl("/ride/end"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ride_id: activeRide.ride_id,
+          lon: endNearestStation.lon,
+          lat: endNearestStation.lat,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(formatErrorDetail(data.detail ?? data));
-      setEndResult(data);
-    } catch (e) {
-      setEndError(e instanceof Error ? e.message : String(e));
+      setActiveRide(null);
+      setEndNearestStation(null);
+      setEndPhoto(null);
+      const fee = typeof data.payment_charged === "number" ? data.payment_charged : 0;
+      addToast("success", `Ride ended. Payment of ${fee} ILS processed.`);
+      setView("home");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setEndError(msg);
+      addToast("error", `Payment failed: ${msg}`);
+    } finally {
+      setEndLoading(false);
     }
   };
 
-  const fetchActiveUsers = async () => {
-    setActiveUsersError(null);
-    setActiveUsersResult(null);
+  // Profile
+  const [profile, setProfile] = useState<{
+    user_id: string;
+    name: string;
+    email: string;
+    payment_method_id: string;
+    is_pro: boolean;
+  } | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [newPaymentId, setNewPaymentId] = useState("");
+  const [profilePaymentError, setProfilePaymentError] = useState<string | null>(
+    null
+  );
+
+  // Ride history
+  const [rideHistory, setRideHistory] = useState<
+    { ride_id: string; vehicle_id: string; start_time: string; end_time: string; fee: number; status: string }[]
+  >([]);
+  const [rideHistoryError, setRideHistoryError] = useState<string | null>(null);
+
+  function formatRideDateTime(iso: string): string {
+    if (!iso) return "—";
     try {
-      const res = await fetch(apiUrl("/rides/active-users"));
+      const d = new Date(iso);
+      return d.toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" });
+    } catch {
+      return iso;
+    }
+  }
+
+
+  useEffect(() => {
+    if (view !== "rideHistory" || !user) return;
+    setRideHistoryError(null);
+    fetch(apiUrl(`/ride/rides/history?user_id=${encodeURIComponent(user.user_id)}`))
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.rides) setRideHistory(data.rides);
+        else setRideHistoryError("Failed to load ride history");
+      })
+      .catch(() => setRideHistoryError("Failed to load ride history"));
+  }, [view, user?.user_id]);
+
+  // Upgrade to Pro
+  const [licenseNumber, setLicenseNumber] = useState("");
+  const [licenseExpiry, setLicenseExpiry] = useState("");
+  const [licenseImageUrl, setLicenseImageUrl] = useState("");
+  const [upgradeError, setUpgradeError] = useState<string | null>(null);
+  const [upgradeLoading, setUpgradeLoading] = useState(false);
+
+  const doUpgrade = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !licenseNumber.trim() || !licenseExpiry.trim()) return;
+    setUpgradeError(null);
+    setUpgradeLoading(true);
+    try {
+      const res = await fetch(apiUrl("/user/upgrade"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.user_id,
+          license_number: licenseNumber.trim(),
+          license_expiry: licenseExpiry.trim(),
+          license_image_url: licenseImageUrl.trim() || undefined,
+        }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(formatErrorDetail(data.detail ?? data));
-      setActiveUsersResult(data);
-    } catch (e) {
-      setActiveUsersError(e instanceof Error ? e.message : String(e));
+      setUser((prev) => (prev ? { ...prev, is_pro: true } : null));
+      addToast("success", "Upgraded to Pro");
+      setView("home");
+      setLicenseNumber("");
+      setLicenseExpiry("");
+      setLicenseImageUrl("");
+    } catch (err) {
+      setUpgradeError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setUpgradeLoading(false);
     }
   };
 
+  // Report degraded: during active ride (no input) or from last completed ride
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [lastRideVehicleId, setLastRideVehicleId] = useState<string | null>(null);
+  const [lastRideLoading, setLastRideLoading] = useState(false);
+
+  useEffect(() => {
+    if (view !== "reportVehicle" || activeRide || !user) {
+      setLastRideVehicleId(null);
+      return;
+    }
+    setLastRideLoading(true);
+    setReportError(null);
+    fetch(apiUrl(`/ride/rides/history?user_id=${encodeURIComponent(user.user_id)}`))
+      .then((r) => r.json())
+      .then((data) => {
+        const first = data?.rides?.[0];
+        setLastRideVehicleId(first?.vehicle_id ?? null);
+      })
+      .catch(() => setLastRideVehicleId(null))
+      .finally(() => setLastRideLoading(false));
+  }, [view, user?.user_id, activeRide]);
+
+  const reportVehicleId = activeRide?.vehicle_id ?? lastRideVehicleId ?? "";
+
+  const doReport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !reportVehicleId.trim()) return;
+    setReportError(null);
+    setReportLoading(true);
+    try {
+      const res = await fetch(apiUrl("/vehicle/report-degraded"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.user_id,
+          vehicle_id: reportVehicleId.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(formatErrorDetail(data.detail ?? data));
+      addToast("success", "Vehicle reported as degraded");
+      setView("home");
+      setActiveRide(null);
+    } catch (err) {
+      setReportError(err instanceof Error ? err.message : String(err));
+      addToast("error", err instanceof Error ? err.message : String(err));
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (view !== "profile" || !user) return;
+    setProfileError(null);
+    setProfile(null);
+    fetch(
+      apiUrl(`/users/me?user_id=${encodeURIComponent(user.user_id)}`)
+    )
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.user_id) setProfile(data);
+        else setProfileError("Failed to load profile");
+      })
+      .catch(() => setProfileError("Failed to load profile"));
+  }, [view, user?.user_id]);
+
+  const updatePaymentMethod = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !newPaymentId.trim()) return;
+    setProfilePaymentError(null);
+    try {
+      const res = await fetch(
+        apiUrl(`/users/${user.user_id}/payment-method`),
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ payment_method_id: newPaymentId.trim() }),
+        }
+      );
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(formatErrorDetail(data.detail ?? data));
+      }
+      if (profile)
+        setProfile({ ...profile, payment_method_id: newPaymentId.trim() });
+      setNewPaymentId("");
+      addToast("success", "Payment method updated");
+    } catch (err) {
+      setProfilePaymentError(
+        err instanceof Error ? err.message : String(err)
+      );
+    }
+  };
+
+  const logout = () => {
+    setUser(null);
+    setActiveRide(null);
+    setView("auth");
+  };
+
+  useEffect(() => {
+    if (!user && view !== "auth") setView("auth");
+  }, [user, view]);
+
+  // Auth view
+  if (!user && view === "auth") {
+    return (
+      <>
+        <main className="app">
+          <div className="card section-card">
+            <h1 className="app-title">TLVFlow</h1>
+            <p className="app-tagline">Vehicle management</p>
+            <div className="view-header" style={{ marginTop: "1rem" }}>
+              <button
+                type="button"
+                className={`view-back ${authTab === "login" ? "" : "muted"}`}
+                onClick={() => setAuthTab("login")}
+              >
+                Login
+              </button>
+              <button
+                type="button"
+                className={`view-back ${authTab === "signup" ? "" : "muted"}`}
+                onClick={() => setAuthTab("signup")}
+              >
+                Sign up
+              </button>
+            </div>
+            {authTab === "login" && (
+              <form onSubmit={doLogin} className="form">
+                <label className="form-row">
+                  <span>Email</span>
+                  <input
+                    type="email"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    required
+                  />
+                </label>
+                <label className="form-row">
+                  <span>Password</span>
+                  <input
+                    type="password"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    required
+                  />
+                </label>
+                {loginError && <p className="result-error">{loginError}</p>}
+                <button type="submit" className="btn">
+                  Log in
+                </button>
+              </form>
+            )}
+            {authTab === "signup" && (
+              <form onSubmit={doSignup} className="form">
+                <label className="form-row">
+                  <span>Name</span>
+                  <input
+                    type="text"
+                    value={signupName}
+                    onChange={(e) => setSignupName(e.target.value)}
+                    required
+                  />
+                </label>
+                <label className="form-row">
+                  <span>Email</span>
+                  <input
+                    type="email"
+                    value={signupEmail}
+                    onChange={(e) => setSignupEmail(e.target.value)}
+                    required
+                  />
+                </label>
+                <label className="form-row">
+                  <span>Password</span>
+                  <input
+                    type="password"
+                    value={signupPassword}
+                    onChange={(e) => setSignupPassword(e.target.value)}
+                    required
+                  />
+                </label>
+                <label className="form-row">
+                  <span>Payment method ID</span>
+                  <input
+                    type="text"
+                    value={signupPaymentId}
+                    onChange={(e) => setSignupPaymentId(e.target.value)}
+                    required
+                  />
+                </label>
+                {signupError && <p className="result-error">{signupError}</p>}
+                <button type="submit" className="btn">
+                  Sign up
+                </button>
+              </form>
+            )}
+          </div>
+        </main>
+        <ToastContainer toasts={toasts} remove={removeToast} />
+      </>
+    );
+  }
+
+  // Logged-in views
   return (
-    <main className="app">
-      <div className="card app-card">
-        <h1 className="app-title">TLVFlow</h1>
-        <p className="app-tagline">Vehicle management</p>
-      </div>
+    <>
+      <main className="app">
+        {view === "home" && (
+          <>
+            <div className="card app-card">
+              <h1 className="app-title">TLVFlow</h1>
+              <p className="app-tagline">Hi, {user?.name}</p>
+            </div>
+            <div className="card section-card">
+              <h2 className="section-title">Menu</h2>
+              <div className="form" style={{ gap: "0.5rem" }}>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setView("findStation")}
+                >
+                  Find nearest station
+                </button>
+                {!activeRide && (
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => setView("startRide")}
+                  >
+                    Start ride
+                  </button>
+                )}
+                {activeRide && (
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => setView("endRide")}
+                  >
+                    End ride
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setView("rideHistory")}
+                >
+                  Ride history
+                </button>
+                {!user?.is_pro && (
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => setView("upgradePro")}
+                  >
+                    Upgrade to Pro
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setView("reportVehicle")}
+                  title={activeRide ? "Report current vehicle as degraded" : "Report a vehicle as degraded (start a ride first)"}
+                >
+                  Report degraded vehicle
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setView("profile")}
+                >
+                  My data
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={logout}
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
+          </>
+        )}
 
-      {currentUserId && (
-        <div className="card section-card">
-          <p className="section-note">Current user for rides: {currentUserId}</p>
-        </div>
-      )}
+        {view === "findStation" && (
+          <div className="card section-card">
+            <div className="view-header">
+              <button
+                type="button"
+                className="view-back"
+                onClick={() => setView("home")}
+              >
+                Back
+              </button>
+            </div>
+            <h2 className="section-title">Find nearest station</h2>
+            <button type="button" className="btn" onClick={useMyLocation}>
+              Use my location
+            </button>
+            {nearestError && (
+              <p className="result-error">{nearestError}</p>
+            )}
+            {nearestResult && (
+              <div className="result-block">
+                <p>
+                  <strong>{nearestResult.name}</strong> (ID:{" "}
+                  {nearestResult.station_id})
+                </p>
+                <p>
+                  Lat: {nearestResult.lat}, Lon: {nearestResult.lon}
+                </p>
+                <p>
+                  Capacity: {nearestResult.capacity}, Available:{" "}
+                  {nearestResult.available_slots}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
-      <div className="card section-card">
-        <h2 className="section-title">Health</h2>
-        <button type="button" className="btn" onClick={checkHealth}>
-          Check health
-        </button>
-        {healthError && <p className="result-error">{healthError}</p>}
-        {healthResult && <p className="result-ok">{healthResult}</p>}
-      </div>
+        {view === "startRide" && (
+          <div className="card section-card">
+            <div className="view-header">
+              <button
+                type="button"
+                className="view-back"
+                onClick={() => setView("home")}
+              >
+                Back
+              </button>
+            </div>
+            <h2 className="section-title">Start ride</h2>
+            <p className="section-note">
+              Enter the vehicle number shown on the vehicle.
+            </p>
+            <form onSubmit={doStartRide} className="form">
+              <label className="form-row">
+                <span>Vehicle number</span>
+                <input
+                  type="text"
+                  value={vehicleId}
+                  onChange={(e) => setVehicleId(e.target.value)}
+                  required
+                />
+              </label>
+              {startError && (
+                <p className="result-error">{startError}</p>
+              )}
+              <button type="submit" className="btn">
+                Start ride
+              </button>
+            </form>
+          </div>
+        )}
 
-      <div className="card section-card">
-        <h2 className="section-title">Register</h2>
-        <form onSubmit={register} className="form">
-          <label className="form-row">
-            <span>Name</span>
-            <input
-              type="text"
-              value={registerName}
-              onChange={(e) => setRegisterName(e.target.value)}
-              required
-            />
-          </label>
-          <label className="form-row">
-            <span>Email</span>
-            <input
-              type="email"
-              value={registerEmail}
-              onChange={(e) => setRegisterEmail(e.target.value)}
-              required
-            />
-          </label>
-          <label className="form-row">
-            <span>Password</span>
-            <input
-              type="password"
-              value={registerPassword}
-              onChange={(e) => setRegisterPassword(e.target.value)}
-              required
-            />
-          </label>
-          <label className="form-row">
-            <span>Payment method ID (optional)</span>
-            <input
-              type="text"
-              value={registerPaymentMethodId}
-              onChange={(e) => setRegisterPaymentMethodId(e.target.value)}
-            />
-          </label>
-          <button type="submit" className="btn">
-            Register
-          </button>
-        </form>
-        {registerError && <p className="result-error">{registerError}</p>}
-        {registerResult && (
-          <div className="result-block">
-            <p className="result-ok">user_id: {registerResult.user_id}</p>
-            <div className="result-actions">
-              <CopyButton value={registerResult.user_id} />
+        {view === "endRide" && activeRide && (
+          <div className="card section-card">
+            <div className="view-header">
+              <button
+                type="button"
+                className="view-back"
+                onClick={() => setView("home")}
+              >
+                Back
+              </button>
+            </div>
+            <h2 className="section-title">End ride</h2>
+            <p className="section-note">
+              Take a photo of the vehicle and be at a station to end the ride.
+            </p>
+            {endLocationLoading && (
+              <p className="section-note">Getting your location…</p>
+            )}
+            {endNearestStation && (
+              <div className="result-block">
+                <p>
+                  <strong>Nearest station:</strong> {endNearestStation.name} (ID:{" "}
+                  {endNearestStation.station_id}) — {endNearestStation.distance_m} m
+                  away
+                </p>
+                {!endAtStation && (
+                  <p className="result-error">
+                    You must be at a station to end the ride. Go to{" "}
+                    {endNearestStation.name} ({endNearestStation.distance_m} m
+                    away) or another station.
+                  </p>
+                )}
+              </div>
+            )}
+            <form onSubmit={doEndRide} className="form">
+              <label className="form-row">
+                <span>Photo of vehicle (required)</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) {
+                      const url = URL.createObjectURL(f);
+                      setEndPhoto(url);
+                    } else setEndPhoto(null);
+                  }}
+                />
+              </label>
+              {endPhoto && (
+                <p className="section-note">
+                  Photo added. You can end the ride when at the station.
+                </p>
+              )}
+              {endError && <p className="result-error">{endError}</p>}
               <button
                 type="button"
                 className="btn btn-secondary"
-                onClick={() => useAsCurrentUser(registerResult.user_id)}
+                onClick={loadEndRideNearest}
+                disabled={endLocationLoading}
               >
-                Use as current user
+                Refresh location
+              </button>
+              <button
+                type="submit"
+                className="btn"
+                disabled={
+                  endLoading ||
+                  !endPhoto ||
+                  !endAtStation ||
+                  endLocationLoading ||
+                  !endNearestStation
+                }
+              >
+                {endLoading ? "Ending…" : "End ride"}
+              </button>
+            </form>
+          </div>
+        )}
+
+        {view === "profile" && (
+          <div className="card section-card">
+            <div className="view-header">
+              <button
+                type="button"
+                className="view-back"
+                onClick={() => setView("home")}
+              >
+                Back
               </button>
             </div>
+            <h2 className="section-title">My data</h2>
+            {profileError && (
+              <p className="result-error">{profileError}</p>
+            )}
+            {profile && (
+              <>
+                <p>Name: {profile.name}</p>
+                <p>Email: {profile.email}</p>
+                <p>Payment method ID: {profile.payment_method_id || "—"}</p>
+                <p>{profile.is_pro ? "Pro user" : "Standard user"}</p>
+                <form onSubmit={updatePaymentMethod} className="form">
+                  <label className="form-row">
+                    <span>Update payment method ID</span>
+                    <input
+                      type="text"
+                      value={newPaymentId}
+                      onChange={(e) => setNewPaymentId(e.target.value)}
+                    />
+                  </label>
+                  {profilePaymentError && (
+                    <p className="result-error">{profilePaymentError}</p>
+                  )}
+                  <button type="submit" className="btn">
+                    Update
+                  </button>
+                </form>
+              </>
+            )}
           </div>
         )}
-      </div>
 
-      <div className="card section-card">
-        <h2 className="section-title">Nearest station</h2>
-        <form onSubmit={findNearest} className="form">
-          <label className="form-row">
-            <span>Latitude</span>
-            <input
-              type="number"
-              step="any"
-              min={-90}
-              max={90}
-              value={nearestLat}
-              onChange={(e) => setNearestLat(e.target.value)}
-              required
-            />
-          </label>
-          <label className="form-row">
-            <span>Longitude</span>
-            <input
-              type="number"
-              step="any"
-              min={-180}
-              max={180}
-              value={nearestLon}
-              onChange={(e) => setNearestLon(e.target.value)}
-              required
-            />
-          </label>
-          <button type="submit" className="btn">
-            Find nearest
-          </button>
-        </form>
-        {nearestError && <p className="result-error">{nearestError}</p>}
-        {nearestResult && (
-          <div className="result-block">
-            <p>Station: {nearestResult.name} (id: {nearestResult.station_id})</p>
-            <p>Lat: {nearestResult.lat}, Lon: {nearestResult.lon}</p>
-            <p>Capacity: {nearestResult.capacity}, Available: {nearestResult.available_slots}</p>
-            <p>{nearestResult.is_full ? "Full" : nearestResult.is_empty ? "Empty" : "Has slots"}</p>
-            <CopyButton value={String(nearestResult.station_id)} />
-          </div>
-        )}
-      </div>
-
-      <div className="card section-card">
-        <h2 className="section-title">Start ride</h2>
-        <form onSubmit={startRide} className="form">
-          <label className="form-row">
-            <span>User ID</span>
-            <input
-              type="text"
-              value={startUserId}
-              onChange={(e) => setStartUserId(e.target.value)}
-              placeholder={currentUserId || undefined}
-              required
-            />
-          </label>
-          <label className="form-row">
-            <span>Station ID</span>
-            <input
-              type="number"
-              min={1}
-              value={startStationId}
-              onChange={(e) => setStartStationId(e.target.value)}
-              required
-            />
-          </label>
-          <button type="submit" className="btn">
-            Start ride
-          </button>
-        </form>
-        {startError && <p className="result-error">{startError}</p>}
-        {startResult && (
-          <div className="result-block">
-            <p className="result-ok">ride_id: {startResult.ride_id}</p>
-            <p>vehicle_id: {startResult.vehicle_id}</p>
-            <p>station_id: {startResult.station_id}</p>
-            <div className="result-actions">
-              <CopyButton value={startResult.ride_id} />
-              <CopyButton value={startResult.vehicle_id} />
+        {view === "rideHistory" && (
+          <div className="card section-card">
+            <div className="view-header">
+              <button
+                type="button"
+                className="view-back"
+                onClick={() => setView("home")}
+              >
+                Back
+              </button>
             </div>
+            <h2 className="section-title">Ride history</h2>
+            {rideHistoryError && (
+              <p className="result-error">{rideHistoryError}</p>
+            )}
+            {rideHistory.length === 0 && !rideHistoryError && (
+              <p className="section-note">No past rides.</p>
+            )}
+            {rideHistory.length > 0 && (
+              <ul className="result-block" style={{ listStyle: "none", paddingLeft: 0 }}>
+                {rideHistory.map((r) => (
+                  <li key={r.ride_id} className="ride-history-item" style={{ marginBottom: "1rem", padding: "0.75rem", border: "1px solid var(--border)", borderRadius: "6px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.5rem 1rem" }}>
+                    <span><strong>Vehicle {r.vehicle_id}</strong></span>
+                    <span className="ride-history-times" style={{ color: "var(--text-muted)" }}>
+                      {formatRideDateTime(r.start_time)} → {formatRideDateTime(r.end_time)}
+                    </span>
+                    {typeof r.fee === "number" && (
+                      <span style={{ color: "var(--text-muted)" }}>{r.fee} ILS</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
-      </div>
 
-      <div className="card section-card">
-        <h2 className="section-title">End ride</h2>
-        <form onSubmit={endRide} className="form">
-          <label className="form-row">
-            <span>User ID</span>
-            <input
-              type="text"
-              value={endUserId}
-              onChange={(e) => setEndUserId(e.target.value)}
-              placeholder={currentUserId || undefined}
-              required
-            />
-          </label>
-          <label className="form-row">
-            <span>Vehicle ID</span>
-            <input
-              type="text"
-              value={endVehicleId}
-              onChange={(e) => setEndVehicleId(e.target.value)}
-              required
-            />
-          </label>
-          <label className="form-row">
-            <span>Station ID</span>
-            <input
-              type="number"
-              min={1}
-              value={endStationId}
-              onChange={(e) => setEndStationId(e.target.value)}
-              required
-            />
-          </label>
-          <button type="submit" className="btn">
-            End ride
-          </button>
-        </form>
-        {endError && <p className="result-error">{endError}</p>}
-        {endResult && (
-          <div className="result-block">
-            <p className="result-ok">ride_id: {endResult.ride_id}, fee: {endResult.fee}</p>
-            <CopyButton value={endResult.ride_id} />
+        {view === "upgradePro" && (
+          <div className="card section-card">
+            <div className="view-header">
+              <button
+                type="button"
+                className="view-back"
+                onClick={() => setView("home")}
+              >
+                Back
+              </button>
+            </div>
+            <h2 className="section-title">Upgrade to Pro</h2>
+            <p className="section-note">
+              Add your driver's license to upgrade (one-time).
+            </p>
+            <form onSubmit={doUpgrade} className="form">
+              <label className="form-row">
+                <span>License number</span>
+                <input
+                  type="text"
+                  value={licenseNumber}
+                  onChange={(e) => setLicenseNumber(e.target.value)}
+                  required
+                />
+              </label>
+              <label className="form-row">
+                <span>License expiry (ISO date)</span>
+                <input
+                  type="text"
+                  value={licenseExpiry}
+                  onChange={(e) => setLicenseExpiry(e.target.value)}
+                  placeholder="e.g. 2028-12-31"
+                  required
+                />
+              </label>
+              <label className="form-row">
+                <span>License image URL (optional)</span>
+                <input
+                  type="url"
+                  value={licenseImageUrl}
+                  onChange={(e) => setLicenseImageUrl(e.target.value)}
+                  placeholder="https://..."
+                />
+              </label>
+              {upgradeError && (
+                <p className="result-error">{upgradeError}</p>
+              )}
+              <button type="submit" className="btn" disabled={upgradeLoading}>
+                {upgradeLoading ? "Upgrading…" : "Upgrade to Pro"}
+              </button>
+            </form>
           </div>
         )}
-      </div>
 
-      <div className="card section-card">
-        <h2 className="section-title">Active users</h2>
-        <button type="button" className="btn" onClick={fetchActiveUsers}>
-          Refresh
-        </button>
-        {activeUsersError && <p className="result-error">{activeUsersError}</p>}
-        {activeUsersResult && (
-          <div className="result-block">
-            <pre className="result-json">
-              {JSON.stringify(activeUsersResult.users, null, 2)}
-            </pre>
+        {view === "reportVehicle" && (
+          <div className="card section-card">
+            <div className="view-header">
+              <button
+                type="button"
+                className="view-back"
+                onClick={() => setView("home")}
+              >
+                Back
+              </button>
+            </div>
+            <h2 className="section-title">Report degraded vehicle</h2>
+            {activeRide ? (
+              <>
+                <p className="section-note">
+                  You are riding <strong>Vehicle {activeRide.vehicle_id}</strong>. Reporting it as degraded will end your ride at no charge.
+                </p>
+                <form onSubmit={doReport} className="form">
+                  {reportError && <p className="result-error">{reportError}</p>}
+                  <button type="submit" className="btn" disabled={reportLoading}>
+                    {reportLoading ? "Reporting…" : "Report degraded vehicle"}
+                  </button>
+                </form>
+              </>
+            ) : lastRideLoading ? (
+              <p className="section-note">Loading…</p>
+            ) : lastRideVehicleId ? (
+              <>
+                <p className="section-note">
+                  Report the vehicle from your last ride (<strong>Vehicle {lastRideVehicleId}</strong>) as degraded.
+                </p>
+                <form onSubmit={doReport} className="form">
+                  {reportError && <p className="result-error">{reportError}</p>}
+                  <button type="submit" className="btn" disabled={reportLoading}>
+                    {reportLoading ? "Reporting…" : "Report degraded vehicle"}
+                  </button>
+                </form>
+              </>
+            ) : (
+              <>
+                <p className="section-note">
+                  You can report a vehicle as degraded only during an active ride (it will end the ride at no charge) or the vehicle from your last completed ride.
+                </p>
+                <p className="result-error">No ride to report. Start a ride or complete one, then return here.</p>
+              </>
+            )}
           </div>
         )}
-      </div>
-    </main>
+      </main>
+      <ToastContainer toasts={toasts} remove={removeToast} />
+    </>
   );
 }
 
