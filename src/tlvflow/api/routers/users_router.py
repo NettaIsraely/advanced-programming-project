@@ -42,7 +42,7 @@ async def register(request: Request, body: RegisterRequest) -> RegisterResponse:
             name=body.name,
             email=body.email,
             password=body.password,
-            payment_method_id=body.payment_method_id or "",
+            payment_method_id=body.payment_method_id,
         )
     except ValueError as exc:
         msg = str(exc)

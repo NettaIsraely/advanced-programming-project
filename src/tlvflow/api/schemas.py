@@ -44,11 +44,10 @@ class StationNearestResponse(BaseModel):
 class RegisterRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    # choose the fields your /register endpoint expects
     name: str
     email: str
     password: str
-    payment_method_id: str | None = None
+    payment_method_id: str = Field(min_length=1, description="Mocked payment token (required for billing)")
 
 
 class RegisterResponse(BaseModel):

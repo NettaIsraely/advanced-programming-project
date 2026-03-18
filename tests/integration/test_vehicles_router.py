@@ -44,7 +44,7 @@ def test_treat_degrades_vehicle_resets_and_relocates() -> None:
 
     assert resp.status_code == 200
     data = resp.json()
-    assert "v1" in data["treated_vehicles"]
+    assert "v1" in data
     assert v1.check_status() == VehicleStatus.AVAILABLE
     assert v1.rides_since_last_treated == 0
     assert v1.last_treated_date == date.today()
@@ -85,7 +85,7 @@ def test_treat_high_ride_vehicle_resets_stays_at_station() -> None:
 
     assert resp.status_code == 200
     data = resp.json()
-    assert "v2" in data["treated_vehicles"]
+    assert "v2" in data
     assert v2.check_status() == VehicleStatus.AVAILABLE
     assert v2.rides_since_last_treated == 0
     assert v2.last_treated_date == date.today()
@@ -124,7 +124,7 @@ def test_treat_scooter_applies_scooter_treatments() -> None:
 
     assert resp.status_code == 200
     data = resp.json()
-    assert "s1" in data["treated_vehicles"]
+    assert "s1" in data
     assert s1.check_status() == VehicleStatus.AVAILABLE
     assert s1.rides_since_last_treated == 0
     assert len(maintenance_repo.get_all()) == 1
@@ -159,7 +159,7 @@ def test_treat_ignores_ineligible_vehicles() -> None:
         resp = client.post("/vehicle/treat")
 
     assert resp.status_code == 200
-    assert resp.json()["treated_vehicles"] == []
+    assert resp.json() == []
     assert v3.check_status() == VehicleStatus.AVAILABLE
     assert v3.rides_since_last_treated == 2
     assert len(maintenance_repo.get_all()) == 0

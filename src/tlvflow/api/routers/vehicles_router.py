@@ -70,7 +70,7 @@ async def treat(request: Request) -> JSONResponse:
         treated_ids = await treat_vehicles(
             vehicles_repo, stations_repo, maintenance_repo, degraded_repo
         )
-    return JSONResponse(content={"treated_vehicles": treated_ids})
+    return JSONResponse(content=treated_ids)
 
 
 @router.post("/vehicle/report-degraded", response_model=OkResponse)  # type: ignore[misc]
