@@ -155,7 +155,7 @@ async def end(request: Request, body: RideEndRequest) -> RideEndResponse:
                 raise ValueError(f"Station {body.station_id} not found")
             if vehicle is None:
                 raise ValueError(f"Vehicle {body.vehicle_id} not found")
-            if station.is_full():
+            if station.is_full:
                 raise ValueError(f"Station {body.station_id} is full")
             station.dock(vehicle)
     except ValueError as exc:
