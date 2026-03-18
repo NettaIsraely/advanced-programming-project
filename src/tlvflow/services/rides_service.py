@@ -13,7 +13,6 @@ from tlvflow.persistence.rides_repository import RidesRepository
 from tlvflow.persistence.users_repository import UsersRepository
 from tlvflow.services.stations_service import (
     distance_meters,
-    find_nearest_station_with_eligible_vehicle,
     find_nearest_station_with_free_slot,
 )
 
@@ -75,16 +74,14 @@ async def start_ride_by_vehicle(
 
 async def start_ride(
     user_id: str,
-    lon: float,
-    lat: float,
+    station_id: int,
     rides_repo: RidesRepository,
     active_users_repo: ActiveUsersRepository,
     station_repo: StationRepository,
     users_repo: UsersRepository,
-    station_locks: defaultdict[int, asyncio.Lock] | None = None,
 ) -> tuple[str, str, str, int]:
     """
-    Start a new ride: find nearest station with eligible vehicle, checkout, set IN_USE.
+    Start a new ride from a specific station: checkout a vehicle, set IN_USE.
 
     Returns:
         (ride_id, vehicle_id, vehicle_type, start_station_id).
@@ -96,16 +93,18 @@ async def start_ride(
     if active_users_repo.get_ride_id(user_id) is not None:
         raise ValueError("User already has an active ride")
 
-    result = await find_nearest_station_with_eligible_vehicle(
-        station_repo,
-        lon=lon,
-        lat=lat,
-        station_locks=station_locks,
-    )
-    if result is None:
-        raise ValueError("No station with eligible vehicle found")
+    station = station_repo.get_by_id(station_id)
+    if not station:
+        raise ValueError(f"Station {station_id} not found")
 
-    station, vehicle = result
+    if station.is_empty:
+        raise ValueError(f"Station {station_id} has no available vehicles")
+
+    try:
+        vehicle = station.checkout_vehicle()
+    except Exception as e:
+        raise ValueError(f"Failed to checkout vehicle: {str(e)}") from e
+
     vehicle.set_status(VehicleStatus.IN_USE)
 
     ride = Ride(

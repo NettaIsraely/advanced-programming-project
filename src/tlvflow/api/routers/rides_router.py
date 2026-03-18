@@ -70,16 +70,14 @@ async def start(request: Request, body: RideStartRequest) -> RideStartResponse:
         )
 
     try:
-        async with user_rides_locks[body.user_id]:
+        async with station_locks[body.station_id], user_rides_locks[body.user_id]:
             ride_id, vehicle_id, vehicle_type, start_station_id = await start_ride(
                 user_id=body.user_id,
-                lon=body.lon,
-                lat=body.lat,
+                station_id=body.station_id,
                 rides_repo=rides_repo,
                 active_users_repo=active_users_repo,
                 station_repo=station_repo,
                 users_repo=users_repo,
-                station_locks=station_locks,
             )
     except ValueError as exc:
         msg = str(exc)

@@ -6,6 +6,7 @@ const USER_STORAGE_KEY = "tlvflow_user";
 const DEFAULT_LAT = 32.0853;
 const DEFAULT_LON = 34.7818;
 const END_RIDE_STATION_THRESHOLD_M = 5;
+const START_RIDE_STATION_THRESHOLD_M = 5;
 
 function haversineDistanceMetres(
   lat1: number,
@@ -81,8 +82,10 @@ function saveUser(user: User | null) {
 
 function App() {
   const { toasts, add: addToast, remove: removeToast } = useToasts();
-  const [view, setView] = useState<View>("auth");
   const [user, setUser] = useState<User | null>(loadUser);
+  const [view, setView] = useState<View>(() =>
+    loadUser() ? "home" : "auth"
+  );
   const [activeRide, setActiveRide] = useState<ActiveRide | null>(null);
 
   const fetchActiveRide = useCallback(async (userId: string) => {
@@ -218,39 +221,143 @@ function App() {
     );
   };
 
-  // Start ride by vehicle
-  const [vehicleId, setVehicleId] = useState("");
+  // Start ride: location-based (nearest station, within 5 m) with manual lat/lon fallback
+  const [startNearestStation, setStartNearestStation] = useState<{
+    station_id: number;
+    name: string;
+    lat: number;
+    lon: number;
+    distance_m: number;
+  } | null>(null);
+  const [startUserPosition, setStartUserPosition] = useState<{
+    lat: number;
+    lon: number;
+  } | null>(null);
+  const [startLocationLoading, setStartLocationLoading] = useState(false);
+  const [startManualLat, setStartManualLat] = useState("");
+  const [startManualLon, setStartManualLon] = useState("");
   const [startError, setStartError] = useState<string | null>(null);
+  const [startSubmitLoading, setStartSubmitLoading] = useState(false);
 
-  const doStartRide = async (e: React.FormEvent) => {
+  const loadStartRideNearest = useCallback(
+    async (lat: number, lon: number) => {
+      if (!user) return;
+      setStartError(null);
+      setStartNearestStation(null);
+      setStartUserPosition(null);
+      try {
+        const res = await fetch(
+          apiUrl(`/stations/nearest?lat=${lat}&lon=${lon}`)
+        );
+        const data = await res.json();
+        if (!res.ok)
+          throw new Error(formatErrorDetail(data.detail ?? data));
+        const distance_m = haversineDistanceMetres(
+          lat,
+          lon,
+          data.lat,
+          data.lon
+        );
+        setStartUserPosition({ lat, lon });
+        setStartNearestStation({
+          station_id: data.station_id,
+          name: data.name,
+          lat: data.lat,
+          lon: data.lon,
+          distance_m: Math.round(distance_m),
+        });
+      } catch (err) {
+        setStartError(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [user]
+  );
+
+  const useMyLocationForStart = useCallback(() => {
+    setStartError(null);
+    setStartLocationLoading(true);
+    const resolve = (): Promise<{ lat: number; lon: number }> =>
+      new Promise((resolve) => {
+        if (!navigator.geolocation)
+          return resolve({ lat: DEFAULT_LAT, lon: DEFAULT_LON });
+        navigator.geolocation.getCurrentPosition(
+          (p) =>
+            resolve({
+              lat: p.coords.latitude,
+              lon: p.coords.longitude,
+            }),
+          () => resolve({ lat: DEFAULT_LAT, lon: DEFAULT_LON })
+        );
+      });
+    resolve()
+      .then((latLon) => loadStartRideNearest(latLon.lat, latLon.lon))
+      .catch(() => setStartError("Location error."))
+      .finally(() => setStartLocationLoading(false));
+  }, [loadStartRideNearest]);
+
+  const checkManualLocationForStart = (e: React.FormEvent) => {
+    e.preventDefault();
+    const lat = parseFloat(startManualLat.trim());
+    const lon = parseFloat(startManualLon.trim());
+    if (Number.isNaN(lat) || Number.isNaN(lon)) {
+      setStartError("Enter valid numbers for lat and lon.");
+      return;
+    }
+    setStartLocationLoading(true);
+    loadStartRideNearest(lat, lon).finally(() =>
+      setStartLocationLoading(false)
+    );
+  };
+
+  const startAtStation =
+    startNearestStation !== null &&
+    startNearestStation.distance_m <= START_RIDE_STATION_THRESHOLD_M;
+
+  const doStartRideFromStation = async (
+    e: React.FormEvent,
+    stationId: number
+  ) => {
     e.preventDefault();
     if (!user) return;
     setStartError(null);
+    setStartSubmitLoading(true);
     try {
-      const res = await fetch(apiUrl("/ride/start-by-vehicle"), {
+      const res = await fetch(apiUrl("/ride/start"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: user.user_id,
-          vehicle_id: vehicleId.trim(),
+          station_id: stationId,
         }),
       });
       const data = await res.json();
-      if (res.status === 403) {
-        const msg = formatErrorDetail(data.detail ?? data);
-        addToast("error", msg);
-        setStartError(msg);
-        return;
-      }
       if (!res.ok) throw new Error(formatErrorDetail(data.detail ?? data));
-      setActiveRide({ ride_id: data.ride_id, vehicle_id: data.vehicle_id });
+      setActiveRide({
+        ride_id: data.ride_id,
+        vehicle_id: data.vehicle_id,
+      });
       addToast("success", "Ride started");
       setView("home");
-      setVehicleId("");
+      setStartNearestStation(null);
+      setStartUserPosition(null);
+      setStartManualLat("");
+      setStartManualLon("");
     } catch (err) {
       setStartError(err instanceof Error ? err.message : String(err));
+      addToast("error", err instanceof Error ? err.message : String(err));
+    } finally {
+      setStartSubmitLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (view === "startRide") {
+      setStartNearestStation(null);
+      setStartUserPosition(null);
+      setStartError(null);
+      useMyLocationForStart();
+    }
+  }, [view]); // eslint-disable-line react-hooks/exhaustive-deps -- run when entering startRide only
 
   // End ride: must be at station (within 5 m)
   const [endError, setEndError] = useState<string | null>(null);
@@ -796,23 +903,91 @@ function App() {
             </div>
             <h2 className="section-title">Start ride</h2>
             <p className="section-note">
-              Enter the vehicle number shown on the vehicle.
+              Be within 5 m of a station to start. We'll use your location to
+              find the nearest station.
             </p>
-            <form onSubmit={doStartRide} className="form">
+            <button
+              type="button"
+              className="btn"
+              onClick={useMyLocationForStart}
+              disabled={startLocationLoading}
+            >
+              {startLocationLoading ? "Getting location…" : "Use my location"}
+            </button>
+            {startError && (
+              <p className="result-error">{startError}</p>
+            )}
+            {startNearestStation && (
+              <div className="result-block">
+                {startUserPosition && (
+                  <p className="section-note">
+                    Your position: {startUserPosition.lat.toFixed(5)},{" "}
+                    {startUserPosition.lon.toFixed(5)}
+                  </p>
+                )}
+                <p>
+                  <strong>Nearest station:</strong> {startNearestStation.name}{" "}
+                  (ID: {startNearestStation.station_id}) —{" "}
+                  {startNearestStation.distance_m} m away
+                </p>
+                {startAtStation ? (
+                  <form
+                    onSubmit={(e) =>
+                      doStartRideFromStation(e, startNearestStation.station_id)
+                    }
+                  >
+                    <button
+                      type="submit"
+                      className="btn"
+                      disabled={startSubmitLoading}
+                    >
+                      {startSubmitLoading
+                        ? "Starting…"
+                        : `Start ride from ${startNearestStation.name}`}
+                    </button>
+                  </form>
+                ) : (
+                  <p className="result-error">
+                    You must be within 5 m of a station. Enter your location
+                    manually below or move closer.
+                  </p>
+                )}
+              </div>
+            )}
+            <h3 className="section-title" style={{ marginTop: "1rem" }}>
+              Or enter location manually
+            </h3>
+            <form
+              onSubmit={checkManualLocationForStart}
+              className="form"
+              style={{ gap: "0.5rem" }}
+            >
               <label className="form-row">
-                <span>Vehicle number</span>
+                <span>Latitude</span>
                 <input
                   type="text"
-                  value={vehicleId}
-                  onChange={(e) => setVehicleId(e.target.value)}
-                  required
+                  inputMode="decimal"
+                  placeholder="e.g. 32.0853"
+                  value={startManualLat}
+                  onChange={(e) => setStartManualLat(e.target.value)}
                 />
               </label>
-              {startError && (
-                <p className="result-error">{startError}</p>
-              )}
-              <button type="submit" className="btn">
-                Start ride
+              <label className="form-row">
+                <span>Longitude</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="e.g. 34.7818"
+                  value={startManualLon}
+                  onChange={(e) => setStartManualLon(e.target.value)}
+                />
+              </label>
+              <button
+                type="submit"
+                className="btn"
+                disabled={startLocationLoading}
+              >
+                Check distance to nearest station
               </button>
             </form>
           </div>

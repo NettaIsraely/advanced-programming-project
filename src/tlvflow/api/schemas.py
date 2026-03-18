@@ -98,13 +98,12 @@ class UpgradeResponse(BaseModel):
     user_id: str
 
 
-# Rides: PDF spec — /ride/start (user location), /ride/end (ride_id + location)
+# Rides: PDF spec — /ride/start (station_id), /ride/end (ride_id + location)
 class RideStartRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     user_id: str = Field(min_length=1)
-    lon: float
-    lat: float
+    station_id: int = Field(ge=1)
 
 
 class RideStartByVehicleRequest(BaseModel):

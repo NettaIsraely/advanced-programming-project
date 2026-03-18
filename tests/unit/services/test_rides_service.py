@@ -56,11 +56,11 @@ def _make_bike(
     return bike
 
 
-# --- Start ride: nearest station selection ---
+# --- Start ride: station_id ---
 
 
 async def test_start_ride_uses_requested_station() -> None:
-    """Start ride uses nearest station with eligible vehicle (by lon/lat)."""
+    """Start ride from given station_id checks out a vehicle from that station."""
     users_repo = UsersRepository()
     user = _make_user("u1")
     users_repo.add(user)
@@ -79,8 +79,7 @@ async def test_start_ride_uses_requested_station() -> None:
 
     ride_id, vehicle_id, _, start_station_id = await start_ride(
         user_id=user.user_id,
-        lon=station1.longitude,
-        lat=station1.latitude,
+        station_id=1,
         rides_repo=rides_repo,
         active_users_repo=active_repo,
         station_repo=station_repo,
@@ -100,7 +99,7 @@ async def test_start_ride_uses_requested_station() -> None:
 async def test_start_ride_from_second_station_returns_vehicle_from_that_station() -> (
     None
 ):
-    """When multiple stations exist, start_ride picks nearest by lon/lat."""
+    """When multiple stations exist, start_ride with station_id 2 returns vehicle from station 2."""
     users_repo = UsersRepository()
     user = _make_user("u2")
     users_repo.add(user)
@@ -124,8 +123,7 @@ async def test_start_ride_from_second_station_returns_vehicle_from_that_station(
 
     _, vehicle_id, _, start_station_id = await start_ride(
         user_id=user.user_id,
-        lon=station2.longitude,
-        lat=station2.latitude,
+        station_id=2,
         rides_repo=rides_repo,
         active_users_repo=active_repo,
         station_repo=station_repo,
@@ -161,8 +159,7 @@ async def test_start_ride_with_eligible_vehicle_succeeds() -> None:
 
     ride_id, vehicle_id, _, _ = await start_ride(
         user_id=user.user_id,
-        lon=station.longitude,
-        lat=station.latitude,
+        station_id=1,
         rides_repo=rides_repo,
         active_users_repo=active_repo,
         station_repo=station_repo,
@@ -198,8 +195,7 @@ async def test_start_ride_vehicle_selection_returns_vehicle_from_station() -> No
 
     _, vehicle_id, _, _ = await start_ride(
         user_id=user.user_id,
-        lon=station.longitude,
-        lat=station.latitude,
+        station_id=1,
         rides_repo=rides_repo,
         active_users_repo=active_repo,
         station_repo=station_repo,
@@ -233,8 +229,7 @@ async def test_end_ride_returns_calculated_fee() -> None:
 
     ride_id, _, _, _ = await start_ride(
         user_id=user.user_id,
-        lon=station.longitude,
-        lat=station.latitude,
+        station_id=1,
         rides_repo=rides_repo,
         active_users_repo=active_repo,
         station_repo=station_repo,
@@ -279,8 +274,7 @@ async def test_end_ride_increments_rides_since_last_treated() -> None:
 
     ride_id, _, _, _ = await start_ride(
         user_id=user.user_id,
-        lon=station.longitude,
-        lat=station.latitude,
+        station_id=1,
         rides_repo=rides_repo,
         active_users_repo=active_repo,
         station_repo=station_repo,
@@ -327,8 +321,7 @@ async def test_end_ride_sets_vehicle_available_and_clears_active_user() -> None:
 
     ride_id, _, _, _ = await start_ride(
         user_id=user.user_id,
-        lon=station.longitude,
-        lat=station.latitude,
+        station_id=1,
         rides_repo=rides_repo,
         active_users_repo=active_repo,
         station_repo=station_repo,
@@ -355,7 +348,7 @@ async def test_end_ride_sets_vehicle_available_and_clears_active_user() -> None:
 
 
 async def test_start_ride_station_empty_raises() -> None:
-    """When no station has eligible vehicles, start_ride raises ValueError."""
+    """When the requested station has no vehicles, start_ride raises ValueError."""
     users_repo = UsersRepository()
     user = _make_user("u8")
     users_repo.add(user)
@@ -367,11 +360,10 @@ async def test_start_ride_station_empty_raises() -> None:
     rides_repo = RidesRepository()
     active_repo = ActiveUsersRepository()
 
-    with pytest.raises(ValueError, match="No station with eligible vehicle found"):
+    with pytest.raises(ValueError, match="has no available vehicles"):
         await start_ride(
             user_id=user.user_id,
-            lon=station.longitude,
-            lat=station.latitude,
+            station_id=1,
             rides_repo=rides_repo,
             active_users_repo=active_repo,
             station_repo=station_repo,
@@ -379,11 +371,11 @@ async def test_start_ride_station_empty_raises() -> None:
         )
 
 
-# --- Edge case: all stations full (no vehicles at requested station) ---
+# --- Edge case: station not found ---
 
 
 async def test_start_ride_station_not_found_raises() -> None:
-    """When no stations exist, start_ride raises ValueError."""
+    """When station_id does not exist, start_ride raises ValueError."""
     users_repo = UsersRepository()
     user = _make_user("u9")
     users_repo.add(user)
@@ -393,11 +385,10 @@ async def test_start_ride_station_not_found_raises() -> None:
     rides_repo = RidesRepository()
     active_repo = ActiveUsersRepository()
 
-    with pytest.raises(ValueError, match="No station with eligible vehicle found"):
+    with pytest.raises(ValueError, match="Station .* not found"):
         await start_ride(
             user_id=user.user_id,
-            lon=34.0,
-            lat=32.0,
+            station_id=999,
             rides_repo=rides_repo,
             active_users_repo=active_repo,
             station_repo=station_repo,
@@ -432,8 +423,7 @@ async def test_start_ride_user_already_on_ride_raises() -> None:
 
     await start_ride(
         user_id=user.user_id,
-        lon=station1.longitude,
-        lat=station1.latitude,
+        station_id=1,
         rides_repo=rides_repo,
         active_users_repo=active_repo,
         station_repo=station_repo,
@@ -443,8 +433,7 @@ async def test_start_ride_user_already_on_ride_raises() -> None:
     with pytest.raises(ValueError, match="already has an active ride"):
         await start_ride(
             user_id=user.user_id,
-            lon=station2.longitude,
-            lat=station2.latitude,
+            station_id=2,
             rides_repo=rides_repo,
             active_users_repo=active_repo,
             station_repo=station_repo,
@@ -522,8 +511,7 @@ async def test_end_ride_nonexistent_ride_id_raises() -> None:
 
     await start_ride(
         user_id=user.user_id,
-        lon=station.longitude,
-        lat=station.latitude,
+        station_id=1,
         rides_repo=rides_repo,
         active_users_repo=active_repo,
         station_repo=station_repo,
@@ -564,8 +552,7 @@ async def test_end_ride_far_from_station_raises() -> None:
 
     ride_id, _, _, _ = await start_ride(
         user_id=user.user_id,
-        lon=station.longitude,
-        lat=station.latitude,
+        station_id=1,
         rides_repo=rides_repo,
         active_users_repo=active_repo,
         station_repo=station_repo,
@@ -604,8 +591,7 @@ async def test_start_ride_nonexistent_user_raises() -> None:
     with pytest.raises(ValueError, match="User .* not found"):
         await start_ride(
             user_id="no-such-user",
-            lon=station.longitude,
-            lat=station.latitude,
+            station_id=1,
             rides_repo=rides_repo,
             active_users_repo=active_repo,
             station_repo=station_repo,

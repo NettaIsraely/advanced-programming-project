@@ -62,8 +62,7 @@ def test_e2e_register_start_ride_end_ride() -> None:
             "/ride/start",
             json={
                 "user_id": user_id,
-                "lon": NEAR_STATION_1_LON,
-                "lat": NEAR_STATION_1_LAT,
+                "station_id": 1,
             },
         )
         assert start.status_code == 201
@@ -102,16 +101,14 @@ def test_start_ride_user_already_on_ride_returns_409() -> None:
             "/ride/start",
             json={
                 "user_id": user_id,
-                "lon": NEAR_STATION_1_LON,
-                "lat": NEAR_STATION_1_LAT,
+                "station_id": 1,
             },
         )
         second = client.post(
             "/ride/start",
             json={
                 "user_id": user_id,
-                "lon": 34.78759,
-                "lat": 32.135211,
+                "station_id": 1,
             },
         )
 
@@ -125,8 +122,7 @@ def test_start_ride_nonexistent_user_returns_404() -> None:
             "/ride/start",
             json={
                 "user_id": "nonexistent-user-id",
-                "lon": NEAR_STATION_1_LON,
-                "lat": NEAR_STATION_1_LAT,
+                "station_id": 1,
             },
         )
     assert resp.status_code == 404
