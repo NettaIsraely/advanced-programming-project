@@ -75,6 +75,7 @@ async def report_degraded(
     rides_repo = getattr(request.app.state, "rides_repository", None)
     vehicles_repo = getattr(request.app.state, "vehicle_repository", None)
     degraded_repo = getattr(request.app.state, "degraded_vehicles_repository", None)
+    active_users_repo = getattr(request.app.state, "active_users_repository", None)
 
     if rides_repo is None:
         raise RuntimeError("rides_repository not initialized")
@@ -85,6 +86,9 @@ async def report_degraded(
     if degraded_repo is None:
         raise RuntimeError("degraded_vehicles_repository not initialized")
 
+    if active_users_repo is None:
+        raise RuntimeError("active_users_repository not initialized")
+
     try:
         report_degraded_vehicle(
             user_id=body.user_id,
@@ -92,6 +96,7 @@ async def report_degraded(
             rides_repo=rides_repo,
             vehicles_repo=vehicles_repo,
             degraded_repo=degraded_repo,
+            active_users_repo=active_users_repo,
         )
 
     except LookupError as exc:
