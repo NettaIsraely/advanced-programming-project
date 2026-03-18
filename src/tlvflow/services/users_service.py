@@ -27,7 +27,6 @@ async def register_user(
     return user.user_id
 
 
-async def get_active_users(
 def upgrade_user_to_pro(
     repo: UsersRepository,
     user_id: str,
