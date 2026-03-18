@@ -31,8 +31,13 @@ target-version = "py312"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP"]
+# PEP 8: E (pycodestyle errors), W (pycodestyle warnings), F (Pyflakes), I (isort), UP (pyupgrade)
+select = ["E", "F", "I", "UP", "W"]
 ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["tlvflow"]
+force-single-line = false
 
 [tool.mypy]
 python_version = "3.12"

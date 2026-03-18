@@ -47,7 +47,9 @@ class RegisterRequest(BaseModel):
     name: str
     email: str
     password: str
-    payment_method_id: str = Field(min_length=1, description="Mocked payment token (required for billing)")
+    payment_method_id: str = Field(
+        min_length=1, description="Mocked payment token (required for billing)"
+    )
 
 
 class RegisterResponse(BaseModel):

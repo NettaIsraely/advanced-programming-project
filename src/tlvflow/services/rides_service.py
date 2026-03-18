@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -8,8 +10,8 @@ from tlvflow.persistence.in_memory import StationRepository, VehicleRepository
 from tlvflow.persistence.rides_repository import RidesRepository
 from tlvflow.persistence.users_repository import UsersRepository
 from tlvflow.services.stations_service import (
-    find_nearest_station_with_free_slot,
     find_nearest_station_with_eligible_vehicle,
+    find_nearest_station_with_free_slot,
 )
 
 if TYPE_CHECKING:
@@ -38,9 +40,7 @@ async def start_ride(
     if active_users_repo.get_ride_id(user_id) is not None:
         raise ValueError("User already has an active ride")
 
-    result = find_nearest_station_with_eligible_vehicle(
-        station_repo, lon=lon, lat=lat
-    )
+    result = find_nearest_station_with_eligible_vehicle(station_repo, lon=lon, lat=lat)
     if result is None:
         raise ValueError("No station with eligible vehicle found")
 
@@ -75,7 +75,7 @@ async def end_ride(
     station_repo: StationRepository,
     users_repo: UsersRepository,
     vehicle_repo: VehicleRepository,
-    payment_service: "PaymentService | None",
+    payment_service: PaymentService | None,
 ) -> tuple[int, float]:
     """
     End ride by ride_id: find nearest station with free slot, dock vehicle, charge 15 ILS.
