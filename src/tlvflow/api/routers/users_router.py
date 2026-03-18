@@ -93,7 +93,9 @@ async def login(request: Request, body: LoginRequest) -> LoginResponse:
     "/users/me",
     response_model=ProfileResponse,
 )  # type: ignore[misc]
-async def me(request: Request, user_id: str = Query(..., alias="user_id")) -> ProfileResponse:
+async def me(
+    request: Request, user_id: str = Query(..., alias="user_id")
+) -> ProfileResponse:
     """Return the profile for the given user_id (non-sensitive)."""
     repo = getattr(request.app.state, "users_repository", None)
     if repo is None or not isinstance(repo, UsersRepository):

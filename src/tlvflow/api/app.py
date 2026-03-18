@@ -63,9 +63,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         rides_repo.restore(snapshot.get("rides", {}))
         maintenance_repo.restore(snapshot.get("maintenance", {}))
         payments_repo.restore(snapshot.get("payments", {}))
-        await link_vehicles_to_stations(
-            vehicle_repo, station_repo, degraded_vehicles_repo
-        )
+        # Stations already have vehicles docked from restore; do not run link_vehicles (would skip vehicles with no station_id and log warnings).
         await restore_degraded(
             station_repo,
             vehicle_repo,

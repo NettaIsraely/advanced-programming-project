@@ -123,15 +123,18 @@ async def start_by_vehicle(
         )
     ):
         raise HTTPException(status_code=500, detail="Repositories not initialized")
+    assert rides_repo is not None
+    assert active_users_repo is not None
+    assert station_repo is not None
+    assert vehicle_repo is not None
+    assert users_repo is not None
 
     vehicle = vehicle_repo.get_by_id(body.vehicle_id)
     if vehicle is None:
         raise HTTPException(status_code=404, detail="Vehicle not found")
     sid = vehicle.station_id
     if sid is None:
-        raise HTTPException(
-            status_code=400, detail="Vehicle is not at a station"
-        )
+        raise HTTPException(status_code=400, detail="Vehicle is not at a station")
 
     station_locks = getattr(request.app.state, "station_locks", None)
     user_rides_locks = getattr(request.app.state, "user_rides_locks", None)

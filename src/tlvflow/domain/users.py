@@ -128,15 +128,12 @@ class User:
         self,
         *,
         vehicle_id: str,
-        image: str,
         description: str,
     ) -> dict[str, str]:
         """Create a report payload for the given vehicle (diagram: report_vehicle)."""
         if not isinstance(vehicle_id, str) or not vehicle_id.strip():
             raise ValueError("vehicle_id must be a non-empty string")
         payload: dict[str, str] = {"vehicle_id": vehicle_id.strip()}
-        if image:
-            payload["image_url"] = image
         if description:
             payload["description"] = description
         return payload

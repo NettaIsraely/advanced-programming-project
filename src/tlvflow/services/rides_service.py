@@ -12,6 +12,7 @@ from tlvflow.persistence.in_memory import StationRepository, VehicleRepository
 from tlvflow.persistence.rides_repository import RidesRepository
 from tlvflow.persistence.users_repository import UsersRepository
 from tlvflow.services.stations_service import (
+    distance_meters,
     find_nearest_station_with_eligible_vehicle,
     find_nearest_station_with_free_slot,
 )
@@ -163,6 +164,9 @@ async def end_ride(
     )
     if station is None:
         raise ValueError("No station with free slot found")
+
+    if distance_meters(station, lon, lat) > 5.0:
+        raise ValueError("Location must be within 5 meters of a station to end ride")
 
     end_time = datetime.now(UTC)
     ride.end(at=end_time)

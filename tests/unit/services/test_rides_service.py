@@ -544,6 +544,50 @@ async def test_end_ride_nonexistent_ride_id_raises() -> None:
         )
 
 
+async def test_end_ride_far_from_station_raises() -> None:
+    """End ride when user is more than 5 meters from nearest station raises ValueError."""
+    users_repo = UsersRepository()
+    user = _make_user("u_near")
+    users_repo.add(user)
+
+    bike = _make_bike("v_near")
+    # Station at (34.0, 32.0)
+    station = _make_station(1, vehicles=[bike])
+    bike._station_id = 1
+    station_repo = StationRepository()
+    station_repo.add(station)
+    vehicle_repo = VehicleRepository()
+    vehicle_repo.add(bike)
+
+    rides_repo = RidesRepository()
+    active_repo = ActiveUsersRepository()
+
+    ride_id, _, _, _ = await start_ride(
+        user_id=user.user_id,
+        lon=station.longitude,
+        lat=station.latitude,
+        rides_repo=rides_repo,
+        active_users_repo=active_repo,
+        station_repo=station_repo,
+        users_repo=users_repo,
+    )
+
+    # ~11 m north of station (0.0001 deg lat ≈ 11 m)
+    far_lat = station.latitude + 0.0001
+    with pytest.raises(ValueError, match="within 5 meters"):
+        await end_ride(
+            ride_id=ride_id,
+            lon=station.longitude,
+            lat=far_lat,
+            rides_repo=rides_repo,
+            active_users_repo=active_repo,
+            station_repo=station_repo,
+            users_repo=users_repo,
+            vehicle_repo=vehicle_repo,
+            payment_service=PaymentService(),
+        )
+
+
 # --- Start ride: nonexistent user ---
 
 

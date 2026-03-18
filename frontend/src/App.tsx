@@ -5,7 +5,7 @@ import { ToastContainer, useToasts } from "./Toast";
 const USER_STORAGE_KEY = "tlvflow_user";
 const DEFAULT_LAT = 32.0853;
 const DEFAULT_LON = 34.7818;
-const END_RIDE_STATION_THRESHOLD_M = 300;
+const END_RIDE_STATION_THRESHOLD_M = 5;
 
 function haversineDistanceMetres(
   lat1: number,
@@ -252,16 +252,19 @@ function App() {
     }
   };
 
-  // End ride: photo required, must be at station (within threshold)
+  // End ride: must be at station (within 5 m)
   const [endError, setEndError] = useState<string | null>(null);
   const [endLoading, setEndLoading] = useState(false);
-  const [endPhoto, setEndPhoto] = useState<string | null>(null);
   const [endNearestStation, setEndNearestStation] = useState<{
     station_id: number;
     name: string;
     lat: number;
     lon: number;
     distance_m: number;
+  } | null>(null);
+  const [endUserPosition, setEndUserPosition] = useState<{
+    lat: number;
+    lon: number;
   } | null>(null);
   const [endLocationLoading, setEndLocationLoading] = useState(false);
   const endAtStation =
@@ -272,6 +275,7 @@ function App() {
     if (!user || !activeRide) return;
     setEndError(null);
     setEndNearestStation(null);
+    setEndUserPosition(null);
     setEndLocationLoading(true);
     const resolveLocation = (): Promise<{ lat: number; lon: number }> =>
       new Promise((resolve) => {
@@ -304,6 +308,7 @@ function App() {
           data.lat,
           data.lon
         );
+        setEndUserPosition({ lat: latLon.lat, lon: latLon.lon });
         setEndNearestStation({
           station_id: data.station_id,
           name: data.name,
@@ -321,21 +326,20 @@ function App() {
 
   useEffect(() => {
     if (view === "endRide" && activeRide) {
-      setEndPhoto(null);
       setEndNearestStation(null);
+      setEndUserPosition(null);
       loadEndRideNearest();
     }
   }, [view, activeRide, loadEndRideNearest]);
 
+  const NOT_IN_STATION_TOAST = "Not in station, cannot end ride.";
+
   const doEndRide = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !activeRide) return;
-    if (!endPhoto) {
-      setEndError("Please take a picture of the vehicle before ending the ride.");
-      return;
-    }
-    if (!endAtStation || !endNearestStation) {
-      setEndError("You must be at a station to end the ride.");
+    if (!endAtStation || !endNearestStation || !endUserPosition) {
+      addToast("error", NOT_IN_STATION_TOAST);
+      setEndError("You must be within 5 m of a station to end the ride.");
       return;
     }
     setEndError(null);
@@ -346,22 +350,30 @@ function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ride_id: activeRide.ride_id,
-          lon: endNearestStation.lon,
-          lat: endNearestStation.lat,
+          lon: endUserPosition.lon,
+          lat: endUserPosition.lat,
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(formatErrorDetail(data.detail ?? data));
+      if (!res.ok) {
+        const detail = typeof data.detail === "string" ? data.detail : String(data.detail ?? "");
+        if (detail.toLowerCase().includes("within 5 meters") || detail.toLowerCase().includes("5 meters")) {
+          addToast("error", NOT_IN_STATION_TOAST);
+          setEndError("You must be within 5 m of a station to end the ride.");
+          return;
+        }
+        throw new Error(formatErrorDetail(data.detail ?? data));
+      }
       setActiveRide(null);
       setEndNearestStation(null);
-      setEndPhoto(null);
+      setEndUserPosition(null);
       const fee = typeof data.payment_charged === "number" ? data.payment_charged : 0;
       addToast("success", `Ride ended. Payment of ${fee} ILS processed.`);
       setView("home");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setEndError(msg);
-      addToast("error", `Payment failed: ${msg}`);
+      addToast("error", msg);
     } finally {
       setEndLoading(false);
     }
@@ -559,7 +571,7 @@ function App() {
       <>
         <main className="app">
           <div className="card section-card">
-            <h1 className="app-title">TLVFlow</h1>
+            <img src="/logo.png" alt="TLV FLOW" className="app-logo" />
             <p className="app-tagline">Vehicle management</p>
             <div className="view-header" style={{ marginTop: "1rem" }}>
               <button
@@ -819,7 +831,7 @@ function App() {
             </div>
             <h2 className="section-title">End ride</h2>
             <p className="section-note">
-              Take a photo of the vehicle and be at a station to end the ride.
+              Be within 5 m of a station to end the ride.
             </p>
             {endLocationLoading && (
               <p className="section-note">Getting your location…</p>
@@ -833,7 +845,7 @@ function App() {
                 </p>
                 {!endAtStation && (
                   <p className="result-error">
-                    You must be at a station to end the ride. Go to{" "}
+                    You must be within 5 m of a station to end the ride. Go to{" "}
                     {endNearestStation.name} ({endNearestStation.distance_m} m
                     away) or another station.
                   </p>
@@ -841,32 +853,12 @@ function App() {
               </div>
             )}
             <form onSubmit={doEndRide} className="form">
-              <label className="form-row">
-                <span>Photo of vehicle (required)</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) {
-                      const url = URL.createObjectURL(f);
-                      setEndPhoto(url);
-                    } else setEndPhoto(null);
-                  }}
-                />
-              </label>
-              {endPhoto && (
-                <p className="section-note">
-                  Photo added. You can end the ride when at the station.
-                </p>
-              )}
               {endError && <p className="result-error">{endError}</p>}
               <button
                 type="button"
                 className="btn btn-secondary"
                 onClick={loadEndRideNearest}
-                disabled={endLocationLoading}
+                disabled={endLoading || endLocationLoading}
               >
                 Refresh location
               </button>
@@ -875,10 +867,10 @@ function App() {
                 className="btn"
                 disabled={
                   endLoading ||
-                  !endPhoto ||
                   !endAtStation ||
                   endLocationLoading ||
-                  !endNearestStation
+                  !endNearestStation ||
+                  !endUserPosition
                 }
               >
                 {endLoading ? "Ending…" : "End ride"}

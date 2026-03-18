@@ -136,7 +136,6 @@ def test_report_vehicle_requires_vehicle_id(vehicle_id, msg):
     with pytest.raises(ValueError, match=msg):
         user.report_vehicle(
             vehicle_id=vehicle_id,
-            image="",
             description="",
         )
 
@@ -145,17 +144,15 @@ def test_report_vehicle_requires_vehicle_id(vehicle_id, msg):
 def test_report_vehicle_payload_optional_fields():
     user = make_user()
 
-    payload = user.report_vehicle(vehicle_id="v1", image="", description="")
+    payload = user.report_vehicle(vehicle_id="v1", description="")
     assert payload == {"vehicle_id": "v1"}
 
     payload = user.report_vehicle(
         vehicle_id="v1",
-        image="https://example.com/img.png",
         description="flat tire",
     )
     assert payload == {
         "vehicle_id": "v1",
-        "image_url": "https://example.com/img.png",
         "description": "flat tire",
     }
 
