@@ -571,7 +571,7 @@ function App() {
       <>
         <main className="app">
           <div className="card section-card">
-            <img src="/logo.png" alt="TLV FLOW" className="app-logo" />
+            <h1 className="app-title">TLVFlow</h1>
             <p className="app-tagline">Vehicle management</p>
             <div className="view-header" style={{ marginTop: "1rem" }}>
               <button
