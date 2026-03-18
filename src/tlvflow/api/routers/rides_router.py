@@ -122,8 +122,16 @@ async def end(request: Request, body: RideEndRequest) -> RideEndResponse:
             status_code=500, detail="Vehicle repository not initialized"
         )
 
+    station_repo = getattr(request.app.state, "station_repository", None)
+    if station_repo is None or not isinstance(station_repo, StationRepository):
+        logger.error("station_repository not initialized on app.state")
+        raise HTTPException(
+            status_code=500, detail="Station repository not initialized"
+        )
+
     user_rides_locks = getattr(request.app.state, "user_rides_locks", None)
-    if user_rides_locks is None:
+    station_locks = getattr(request.app.state, "station_locks", None)
+    if user_rides_locks is None or station_locks is None:
         raise HTTPException(
             status_code=500, detail="Locks not initialized on app.state"
         )
@@ -138,11 +146,24 @@ async def end(request: Request, body: RideEndRequest) -> RideEndResponse:
                 users_repo=users_repo,
                 vehicle_repo=vehicle_repo,
             )
+
+        # Acquire station lock to prevent concurrent docks from exceeding capacity
+        async with station_locks[body.station_id]:
+            station = station_repo.get_by_id(body.station_id)
+            vehicle = vehicle_repo.get_by_id(body.vehicle_id)
+            if station is None:
+                raise ValueError(f"Station {body.station_id} not found")
+            if vehicle is None:
+                raise ValueError(f"Vehicle {body.vehicle_id} not found")
+            if station.is_full():
+                raise ValueError(f"Station {body.station_id} is full")
+            station.dock(vehicle)
     except ValueError as exc:
         msg = str(exc)
         if "not found" in msg or "does not have an active ride" in msg:
             raise HTTPException(status_code=404, detail=msg)
-
+        if "is full" in msg:
+            raise HTTPException(status_code=409, detail=msg)
         raise HTTPException(status_code=400, detail=msg)
 
     return RideEndResponse(ride_id=ride_id, fee=fee)
