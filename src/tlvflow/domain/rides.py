@@ -121,10 +121,9 @@ class Ride:
         return self.__fee
 
     def calculate_fee(self, duration: float, distance: float) -> float:
-        """Calculate the ride fee from duration and distance. Returns the fee amount."""
-        # Placeholder: override or extend for real pricing logic
+        """Set and return the ride fee. PDF: constant 15 ILS per ride."""
         self.__distance = distance
-        self.__fee = duration * 0.5 + distance * 0.2  # example formula
+        self.__fee = 15.0
         return self.__fee
 
     def _process_payment(self) -> None:

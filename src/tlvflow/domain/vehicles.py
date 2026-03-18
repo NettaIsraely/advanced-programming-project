@@ -139,6 +139,23 @@ class Vehicle(ABC):
         """Unique identifier for the vehicle."""
         return self._vehicle_id
 
+    def vehicle_type(self) -> str:
+        """API-facing type string: 'bike' | 'ebike' | 'scooter' for response schemas."""
+        name = type(self).__name__
+        if name == "Bike":
+            return "bike"
+        if name == "EBike":
+            return "ebike"
+        if name == "Scooter":
+            return "scooter"
+        return "bike"
+
+    def is_rentable(self) -> bool:
+        """True if vehicle can be rented: AVAILABLE and rides_since_last_treated <= 10."""
+        return (
+            self.check_status() == VehicleStatus.AVAILABLE and not self.is_unrentable()
+        )
+
 
 class Bike(Vehicle):
     """Bike subclass representing a regular bicycle."""
