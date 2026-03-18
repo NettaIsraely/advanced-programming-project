@@ -1,6 +1,6 @@
 # TLVFlow
 
-A vehicle-sharing management system for Tel Aviv, built as a RESTful API.
+A vehicle-sharing management system for Tel Aviv, built as a RESTful API with a React frontend.
 Users can register, rent bikes, e-bikes and scooters from docking stations across the city, and return them to any station with available capacity.
 The system handles the full ride lifecycle including payments, vehicle maintenance, degradation reporting, and persistent state across restarts.
 
@@ -10,16 +10,14 @@ The system handles the full ride lifecycle including payments, vehicle maintenan
 - [Tech Stack](#tech-stack)
 - [Architecture](#architecture)
 - [Project Structure](#project-structure)
+- [Running the Project](#running-the-project)
 - [Domain Model](#domain-model)
 - [API Endpoints](#api-endpoints)
 - [Vehicle Selection Logic](#vehicle-selection-logic)
-- [Setup & Installation](#setup--installation)
-- [Running the Server](#running-the-server)
 - [Running Tests](#running-tests)
 - [Data Files](#data-files)
 - [Design Patterns & OOP Principles](#design-patterns--oop-principles)
 - [State Persistence](#state-persistence)
-- [Authors](#authors)
 
 ## Features
 
@@ -33,23 +31,22 @@ The system handles the full ride lifecycle including payments, vehicle maintenan
 - **Maintenance pipeline** — batch treatment of eligible vehicles (10+ rides or degraded), with type-specific treatments (chain lubrication, battery inspection, firmware update, etc.).
 - **Concurrency safety** — async locks per station and per user to prevent double-booking, station overflow, and duplicate ride starts.
 - **State persistence** — full application state serialized to JSON on shutdown and restored on startup (atomic writes via temp file + rename).
+- **Web UI** — React frontend for registration, starting/ending rides, and viewing stations and vehicles.
 
 ## Tech Stack
 
 | Component       | Technology            |
-|-----------------|-----------------------|
-| Language        | Python 3.12           |
-| Web Framework   | FastAPI               |
-| Server          | Uvicorn (ASGI)        |
-| Validation      | Pydantic v2           |
+|-----------------|------------------------|
+| Backend         | Python 3.12, FastAPI, Uvicorn (ASGI), Pydantic v2 |
+| Frontend        | React 18, TypeScript, Vite 6 |
 | Testing         | pytest, httpx         |
 | Linting         | Ruff                  |
-| Type Checking   | mypy (strict mode)    |
-| Build System    | setuptools            |
+| Type Checking   | mypy (backend), TypeScript (frontend) |
+| Build           | setuptools (backend), Vite (frontend) |
 
 ## Architecture
 
-The project follows a **layered architecture** with clear separation of concerns:
+The backend follows a **layered architecture** with clear separation of concerns:
 
 ```
 ┌─────────────────────────────────┐
@@ -70,6 +67,8 @@ The project follows a **layered architecture** with clear separation of concerns
 └─────────────────────────────────┘
 ```
 
+The frontend is a single-page React app that talks to the API at `http://localhost:8000` by default (configurable via `VITE_API_URL`).
+
 ## Project Structure
 
 ```
@@ -79,11 +78,11 @@ advanced-programming-project/
 │   ├── stations.csv              # 1,000 stations with coordinates and capacity
 │   └── state.json                # Auto-generated application state snapshot
 ├── src/
-│   └── tlvflow/
+│   └── tlvflow/                  # Backend (Python)
 │       ├── api/
 │       │   ├── app.py            # FastAPI app, lifespan (startup/shutdown)
-│       │   ├── routes.py         # Top-level router aggregation
-│       │   ├── schemas.py        # Pydantic request/response models
+│       │   ├── routes.py        # Top-level router aggregation
+│       │   ├── schemas.py       # Pydantic request/response models
 │       │   └── routers/
 │       │       ├── health_router.py
 │       │       ├── users_router.py
@@ -91,45 +90,125 @@ advanced-programming-project/
 │       │       ├── rides_router.py
 │       │       └── stations_router.py
 │       ├── domain/
-│       │   ├── enums.py          # VehicleStatus, RideStatus, PaymentKind, etc.
+│       │   ├── enums.py
 │       │   ├── vehicles.py       # Vehicle ABC, Bike, EBike, Scooter, VehicleFactory
-│       │   ├── stations.py       # Station entity with dock/undock/checkout
-│       │   ├── rides.py          # Ride entity with lifecycle management
-│       │   ├── users.py          # User, ProUser with auth and permissions
-│       │   ├── payment.py        # Payment record model
-│       │   ├── payment_service.py# Mocked async payment processing
-│       │   ├── reports.py        # VehicleReport with damage verification
-│       │   ├── maintenance_event.py # Maintenance event tracking
-│       │   └── exceptions.py     # Custom domain exceptions
+│       │   ├── stations.py
+│       │   ├── rides.py
+│       │   ├── users.py
+│       │   ├── payment.py
+│       │   ├── payment_service.py
+│       │   ├── reports.py
+│       │   ├── maintenance_event.py
+│       │   └── exceptions.py
 │       ├── services/
-│       │   ├── rides_service.py  # Ride start/end orchestration
-│       │   ├── users_service.py  # Registration, upgrade, active users
-│       │   ├── vehicles_service.py # Treatment and degradation handling
-│       │   ├── stations_service.py # Nearest-station lookups
-│       │   ├── link_vehicles.py  # Startup vehicle-to-station linking
-│       │   └── degraded_vehicles_service.py # Degraded pool management
+│       │   ├── rides_service.py
+│       │   ├── users_service.py
+│       │   ├── vehicles_service.py
+│       │   ├── stations_service.py
+│       │   ├── link_vehicles.py
+│       │   └── degraded_vehicles_service.py
 │       ├── persistence/
-│       │   ├── in_memory.py      # VehicleRepository, StationRepository
+│       │   ├── in_memory.py
 │       │   ├── users_repository.py
 │       │   ├── rides_repository.py
 │       │   ├── payments_repository.py
 │       │   ├── maintenance_repository.py
 │       │   ├── active_users_repository.py
 │       │   ├── degraded_vehicles_repository.py
-│       │   ├── state_store.py    # JSON state persistence (atomic save)
-│       │   └── loaders.py        # CSV parsing for vehicles and stations
+│       │   ├── state_store.py
+│       │   └── loaders.py
 │       ├── repositories/
-│       │   └── interfaces.py     # Protocol-based repository abstractions
-│       └── logging.py            # Centralized logging configuration
+│       │   └── interfaces.py
+│       └── logging.py
+├── frontend/                     # Frontend (React + Vite)
+│   ├── src/
+│   │   ├── App.tsx
+│   │   ├── main.tsx
+│   │   ├── index.css
+│   │   ├── api.ts                # API base URL and helpers
+│   │   └── Toast.tsx
+│   ├── public/
+│   ├── index.html
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── vite.config.ts
 ├── tests/
-│   ├── unit/                     # Unit tests for domain, services, repositories
-│   │   ├── modules/              # Domain entity tests
-│   │   ├── services/             # Service layer tests
-│   │   └── repositories/         # Repository tests
-│   └── integration/              # Integration tests against the full API
-├── pyproject.toml                # Build config, dependencies, tool settings
+│   ├── unit/
+│   └── integration/
+├── pyproject.toml
+├── requirements.txt
 └── README.md
 ```
+
+## Running the Project
+
+You need both the **backend API** and the **frontend** running. The frontend calls the API at `http://localhost:8000` by default.
+
+**Prerequisites:** Python 3.12+, Node.js 18+ (for the frontend)
+
+---
+
+### 1. Run the backend (API)
+
+From the **project root**:
+
+```bash
+cd advanced-programming-project
+```
+
+Create and activate a virtual environment:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate   # macOS/Linux
+```
+
+On Windows: `.venv\Scripts\activate`
+
+Install backend dependencies and start the API server:
+
+```bash
+pip install -e ".[dev]"
+uvicorn tlvflow.api.app:app --reload
+```
+
+The API will be at **http://localhost:8000**.
+
+- **Swagger UI:** http://localhost:8000/docs  
+- **ReDoc:** http://localhost:8000/redoc  
+
+On first launch, the server loads vehicles and stations from `data/`. On later runs it restores state from `data/state.json` if present.
+
+---
+
+### 2. Run the frontend
+
+Open a **second terminal**. From the project root:
+
+```bash
+cd advanced-programming-project/frontend
+npm install
+npm run dev
+```
+
+The frontend will be at **http://localhost:5173** (or the port Vite prints). Use this URL in the browser; it will talk to the API on port 8000.
+
+To point the frontend at a different API URL, set `VITE_API_URL` before starting:
+
+```bash
+VITE_API_URL=http://localhost:8000 npm run dev
+```
+
+---
+
+### Summary
+
+| Service   | Directory        | Command                          | URL                  |
+|----------|-------------------|----------------------------------|----------------------|
+| Backend  | project root      | `uvicorn tlvflow.api.app:app --reload` | http://localhost:8000 |
+| Frontend | `frontend/`       | `npm run dev`                    | http://localhost:5173 |
+
+Run the backend first, then the frontend. Use the frontend URL in the browser.
 
 ## Domain Model
 
@@ -187,49 +266,14 @@ When multiple eligible vehicles exist at a station, a **deterministic selection 
 1. Prefer **bike**, then **ebike**, then **scooter** (fixed type priority).
 2. Within the same type, choose the vehicle with the **smallest `vehicle_id`** (lexicographic order).
 
-## Setup & Installation
-
-**Prerequisites:** Python 3.12+
-
-```bash
-# Clone the repository
-git clone <repository-url>
-cd advanced-programming-project
-
-# Create and activate a virtual environment
-python -m venv .venv
-source .venv/bin/activate    # macOS/Linux
-
-# Install the package with dev dependencies
-pip install -e ".[dev]"
-```
-
-## Running the Server
-
-```bash
-uvicorn tlvflow.api.app:app --reload
-```
-
-The API will be available at `http://localhost:8000`. FastAPI auto-generates interactive documentation at:
-
-- **Swagger UI:** `http://localhost:8000/docs`
-- **ReDoc:** `http://localhost:8000/redoc`
-
-On first launch, the server loads vehicles and stations from CSV files in `data/`. On subsequent launches, it restores state from `data/state.json` if present.
-
 ## Running Tests
 
+Backend tests only (run from project root with venv activated):
+
 ```bash
-# Run all tests
 pytest
-
-# Run with verbose output
 pytest -v
-
-# Run only unit tests
 pytest tests/unit/
-
-# Run only integration tests
 pytest tests/integration/
 ```
 
