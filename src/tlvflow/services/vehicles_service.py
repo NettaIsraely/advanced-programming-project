@@ -12,7 +12,7 @@ from tlvflow.persistence.rides_repository import RidesRepository
 from tlvflow.repositories.interfaces import MaintenanceRepositoryProtocol
 
 
-def treat_vehicles(
+async def treat_vehicles(
     vehicles_repo: VehicleRepository,
     stations_repo: StationRepository,
     maintenance_repo: MaintenanceRepositoryProtocol,
@@ -80,7 +80,7 @@ def treat_vehicles(
     return treated_ids
 
 
-def report_degraded_vehicle(
+async def report_degraded_vehicle(
     user_id: str,
     vehicle_id: str,
     rides_repo: RidesRepository,

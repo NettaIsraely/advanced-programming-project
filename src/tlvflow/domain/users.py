@@ -148,6 +148,27 @@ class User:
         """
         return True
 
+    def upgrade_to_pro(
+        self, license_number: str, license_expiry: datetime
+    ) -> "ProUser":
+        """
+        Create a ProUser with the same identity and credentials, plus license data.
+        Preserves ride history and current ride state.
+        """
+        pro = ProUser(
+            user_id=self._user_id,
+            name=self._name,
+            email=self._email,
+            password_hash=self._password_hash,
+            payment_method_id=self._payment_method_id,
+            license_number=license_number,
+            license_expiry=license_expiry,
+        )
+        pro._ride_history = list(self._ride_history)
+        pro._current_ride = self._current_ride
+        pro._current_vehicle_id = self._current_vehicle_id
+        return pro
+
     # ----------------------------
     # Permissions
     # ----------------------------

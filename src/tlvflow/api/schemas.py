@@ -56,6 +56,20 @@ class RegisterResponse(BaseModel):
     user_id: str
 
 
+class UpgradeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    user_id: str = Field(min_length=1)
+    license_number: str = Field(min_length=1)
+    license_expiry: str = Field(min_length=1)  # ISO date or datetime string
+    license_image_url: str | None = None  # optional picture of driver's license
+
+
+class UpgradeResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    user_id: str
+
+
 # Rides: PDF spec — /ride/start (user location), /ride/end (ride_id + location)
 class RideStartRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")

@@ -59,9 +59,17 @@ async def treat(request: Request) -> JSONResponse:
             content={"detail": "Degraded vehicles repository not initialized"},
         )
 
-    treated_ids = treat_vehicles(
-        vehicles_repo, stations_repo, maintenance_repo, degraded_repo
-    )
+    treat_lock = getattr(request.app.state, "treat_vehicles_lock", None)
+    if treat_lock is None:
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Locks not initialized on app.state"},
+        )
+
+    async with treat_lock:
+        treated_ids = await treat_vehicles(
+            vehicles_repo, stations_repo, maintenance_repo, degraded_repo
+        )
     return JSONResponse(content={"treated_vehicles": treated_ids})
 
 

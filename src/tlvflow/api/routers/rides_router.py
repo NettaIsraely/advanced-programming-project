@@ -54,7 +54,7 @@ async def start(request: Request, body: RideStartRequest) -> RideStartResponse:
         raise HTTPException(status_code=500, detail="Users repository not initialized")
 
     try:
-        ride_id, vehicle_id, vehicle_type, start_station_id = start_ride(
+        ride_id, vehicle_id, vehicle_type, start_station_id = await start_ride(
             user_id=body.user_id,
             lon=body.lon,
             lat=body.lat,
@@ -152,6 +152,8 @@ async def end(request: Request, body: RideEndRequest) -> RideEndResponse:
             or "no station" in msg.lower()
         ):
             raise HTTPException(status_code=404, detail=msg)
+        if "is full" in msg:
+            raise HTTPException(status_code=409, detail=msg)
         raise HTTPException(status_code=400, detail=msg)
     except PaymentProcessingError as exc:
         raise HTTPException(status_code=400, detail=str(exc))

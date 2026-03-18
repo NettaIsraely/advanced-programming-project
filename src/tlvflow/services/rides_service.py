@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from tlvflow.domain.payment_service import PaymentService
 
 
-def start_ride(
+async def start_ride(
     user_id: str,
     lon: float,
     lat: float,

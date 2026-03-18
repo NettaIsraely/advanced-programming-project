@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
-from tlvflow.domain.users import User
+from tlvflow.domain.users import ProUser, User
 from tlvflow.persistence.active_users_repository import ActiveUsersRepository
 from tlvflow.persistence.users_repository import UsersRepository
 
 
-def register_user(
+async def register_user(
     repo: UsersRepository,
     name: str,
     email: str,
@@ -24,6 +25,29 @@ def register_user(
     )
     repo.add(user)
     return user.user_id
+
+
+def upgrade_user_to_pro(
+    repo: UsersRepository,
+    user_id: str,
+    license_number: str,
+    license_expiry: datetime,
+    *,
+    license_image_url: str | None = None,
+) -> str:
+    """Upgrade a regular user to Pro. Optionally pass license_image_url (picture of license)."""
+    user = repo.get_by_id(user_id)
+    if user is None:
+        raise ValueError("User not found")
+    if isinstance(user, ProUser):
+        raise ValueError("User is already a Pro user")
+    pro = user.upgrade_to_pro(
+        license_number=license_number, license_expiry=license_expiry
+    )
+    repo.add(pro)
+    if license_image_url:
+        pass  # optional: store or validate image for audit
+    return pro.user_id
 
 
 def get_active_users(

@@ -16,7 +16,7 @@ from tlvflow.persistence.degraded_vehicles_repository import (
 from tlvflow.persistence.in_memory import StationRepository, VehicleRepository
 
 
-def mark_degraded(
+async def mark_degraded(
     station_repo: StationRepository,
     vehicle_repo: VehicleRepository,
     degraded_repo: DegradedVehiclesRepository,
@@ -42,7 +42,7 @@ def mark_degraded(
     return vehicle
 
 
-def unmark_degraded(
+async def unmark_degraded(
     station_repo: StationRepository,
     degraded_repo: DegradedVehiclesRepository,
     vehicle_id: str,
@@ -64,7 +64,7 @@ def unmark_degraded(
     return vehicle
 
 
-def restore_degraded(
+async def restore_degraded(
     station_repo: StationRepository,
     vehicle_repo: VehicleRepository,
     degraded_repo: DegradedVehiclesRepository,
