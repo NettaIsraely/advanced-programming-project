@@ -1,6 +1,8 @@
 """FastAPI application entrypoint."""
 
+import asyncio
 import logging
+from collections import defaultdict
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -84,6 +86,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.maintenance_repository = maintenance_repo
     app.state.payments_repository = payments_repo
     app.state.degraded_vehicles_repository = degraded_vehicles_repo
+    # Async locks to prevent race conditions: double-booking, station overflow, duplicate ride starts
+    app.state.station_locks = defaultdict(asyncio.Lock)
+    app.state.user_rides_locks = defaultdict(asyncio.Lock)
+    app.state.treat_vehicles_lock = asyncio.Lock()
 
     try:
         yield
