@@ -245,7 +245,7 @@ Run the backend first, then the frontend. Use the frontend URL in the browser.
 | POST   | `/user/upgrade`            | Upgrade a user to Pro with license details               |
 | GET    | `/rides/active-users`      | List all users with an active ride                       |
 | POST   | `/ride/start`              | Start a ride from user location: body `{ user_id, lon, lat }`; finds nearest station with eligible vehicle, assigns vehicle, returns `ride_id`, `vehicle_id`, `vehicle_type`, `start_station_id`. |
-| POST   | `/ride/start-by-station`   | Start a ride from a specific station (body `{ user_id, station_id }`). Kept for backward compatibility. |
+| POST   | `/ride/start-by-station`   | Start a ride from a specific station (body `{ user_id, station_id }`).|
 | POST   | `/ride/end`                | End a ride — body `{ ride_id, lon, lat }` (lat/lon from device or user-entered); must be within 5 m of a station; docks at nearest with free slot, processes payment |
 | POST   | `/vehicle/treat`           | Batch-treat eligible and degraded vehicles; returns list of treated vehicle IDs |
 | POST   | `/vehicle/report-degraded` | Report current vehicle as degraded during an active ride only (ends ride at no charge) |

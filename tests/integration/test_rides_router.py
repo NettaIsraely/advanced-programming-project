@@ -119,7 +119,7 @@ def test_start_ride_user_already_on_ride_returns_409() -> None:
 
 
 def test_start_by_station_backward_compat() -> None:
-    """POST /ride/start-by-station with station_id works for backward compatibility."""
+    """POST /ride/start-by-station with station_id works"""
     with _make_client() as client:
         reg = client.post(
             "/register", json=_register_payload(f"by-station-{uuid4().hex}@example.com")
