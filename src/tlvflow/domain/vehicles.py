@@ -81,7 +81,7 @@ class Vehicle(ABC):
         Check if the vehicle needs maintenance.
 
         Maintenance is needed if:
-        - 10 or more rides have been done since last treatment, OR
+        - 7 or more rides have been done since last treatment (treatment eligibility per spec), OR
         - A user has reported maintenance needed (via VehicleReport)
 
         Args:
@@ -90,7 +90,7 @@ class Vehicle(ABC):
         Returns:
             bool: True if maintenance is needed, False otherwise
         """
-        if self.rides_since_last_treated >= 10:
+        if self.rides_since_last_treated >= 7:
             return True
 
         if reports:
@@ -193,7 +193,7 @@ class Bike(Vehicle):
             reports: Optional list of VehicleReport instances to check for user reports
 
         Returns:
-            bool: True if maintenance is needed (10+ rides since last
+            bool: True if maintenance is needed (7+ rides since last
                 maintenance or user reported), False otherwise
         """
         return super().check_maintenance_needed(reports)
@@ -240,7 +240,7 @@ class EBike(Vehicle):
             reports: Optional list of VehicleReport instances to check for user reports
 
         Returns:
-            bool: True if maintenance is needed (10+ rides since last
+            bool: True if maintenance is needed (7+ rides since last
                 maintenance, user reported, or low battery), False otherwise
         """
         # Check base maintenance conditions (rides or user report)
@@ -287,7 +287,7 @@ class Scooter(Vehicle):
             reports: Optional list of VehicleReport instances to check for user reports
 
         Returns:
-            bool: True if maintenance is needed (10+ rides since last
+            bool: True if maintenance is needed (7+ rides since last
                 maintenance, user reported, or low battery), False otherwise
         """
         # Check base maintenance conditions (rides or user report)

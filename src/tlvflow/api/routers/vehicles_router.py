@@ -78,13 +78,12 @@ async def report_degraded(
     request: Request,
     body: ReportDegradedRequest,
 ) -> OkResponse:
-    """Report a vehicle as degraded: during an active ride (ends ride at no charge) or from last completed ride."""
+    """Report a vehicle as degraded during an active ride only (ends ride at no charge)."""
 
     rides_repo = getattr(request.app.state, "rides_repository", None)
     vehicles_repo = getattr(request.app.state, "vehicle_repository", None)
     degraded_repo = getattr(request.app.state, "degraded_vehicles_repository", None)
     active_users_repo = getattr(request.app.state, "active_users_repository", None)
-    station_repo = getattr(request.app.state, "station_repository", None)
 
     if rides_repo is None:
         raise RuntimeError("rides_repository not initialized")
@@ -97,9 +96,6 @@ async def report_degraded(
 
     if active_users_repo is None:
         raise RuntimeError("active_users_repository not initialized")
-
-    if station_repo is None or not isinstance(station_repo, StationRepository):
-        raise RuntimeError("station_repository not initialized")
 
     user_rides_locks = getattr(request.app.state, "user_rides_locks", None)
     if user_rides_locks is None:
@@ -114,7 +110,6 @@ async def report_degraded(
                 vehicles_repo=vehicles_repo,
                 degraded_repo=degraded_repo,
                 active_users_repo=active_users_repo,
-                station_repo=station_repo,
             )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

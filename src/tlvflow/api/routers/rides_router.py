@@ -104,7 +104,7 @@ async def start(request: Request, body: RideStartRequest) -> RideStartResponse:
 async def start_by_station(
     request: Request, body: RideStartByStationRequest
 ) -> RideStartResponse:
-    """Start a ride from a specific station (by station_id). Kept for backwards compatibility."""
+    """Start a ride from a specific station (by station_id)."""
 
     rides_repo = getattr(request.app.state, "rides_repository", None)
     active_users_repo = getattr(request.app.state, "active_users_repository", None)

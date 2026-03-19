@@ -81,10 +81,10 @@ def test_is_electric_property_per_type() -> None:
     assert Scooter("S1", "FS1").is_electric is True
 
 
-# Cover the "10+ rides since last treatment" branch in Vehicle.check_maintenance_needed.
-def test_maintenance_needed_when_ten_or_more_rides_since_last_maintenance() -> None:
+# Cover the "7+ rides since last treatment" branch in Vehicle.check_maintenance_needed (treatment eligibility per spec).
+def test_maintenance_needed_when_seven_or_more_rides_since_last_maintenance() -> None:
     b = Bike("B2", "FB2")
-    b.rides_since_last_treated = 10
+    b.rides_since_last_treated = 7
 
     assert b.check_maintenance_needed() is True
 
@@ -92,7 +92,7 @@ def test_maintenance_needed_when_ten_or_more_rides_since_last_maintenance() -> N
 # Cover the "reports is None or empty" path where maintenance is NOT needed.
 def test_maintenance_not_needed_when_under_threshold_and_no_reports() -> None:
     b = Bike("B3", "FB3")
-    b.rides_since_last_treated = 9
+    b.rides_since_last_treated = 6
 
     assert b.check_maintenance_needed() is False
     assert b.check_maintenance_needed([]) is False
@@ -130,10 +130,10 @@ def test_complete_maintenance_resets_maintenance_counter() -> None:
     assert b.last_treated_date == date.today()
     assert b.check_maintenance_needed() is False
 
-    b.rides_since_last_treated = 9
+    b.rides_since_last_treated = 6
     assert b.check_maintenance_needed() is False
 
-    b.rides_since_last_treated = 10
+    b.rides_since_last_treated = 7
     assert b.check_maintenance_needed() is True
 
 
