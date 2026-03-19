@@ -372,9 +372,41 @@ function App() {
     lon: number;
   } | null>(null);
   const [endLocationLoading, setEndLocationLoading] = useState(false);
+  const [endManualLat, setEndManualLat] = useState("");
+  const [endManualLon, setEndManualLon] = useState("");
   const endAtStation =
     endNearestStation !== null &&
     endNearestStation.distance_m <= END_RIDE_STATION_THRESHOLD_M;
+
+  const applyEndLocation = useCallback((lat: number, lon: number) => {
+    setEndError(null);
+    setEndNearestStation(null);
+    setEndUserPosition(null);
+    setEndLocationLoading(true);
+    fetch(apiUrl(`/stations/nearest?lat=${lat}&lon=${lon}`))
+      .then((r) =>
+        r.json().then((data: { station_id: number; name: string; lat: number; lon: number }) => ({ ok: r.ok, data }))
+      )
+      .then(({ ok, data }) => {
+        if (!ok) {
+          setEndError("Could not find nearest station.");
+          setEndLocationLoading(false);
+          return;
+        }
+        const distance_m = haversineDistanceMetres(lat, lon, data.lat, data.lon);
+        setEndUserPosition({ lat, lon });
+        setEndNearestStation({
+          station_id: data.station_id,
+          name: data.name,
+          lat: data.lat,
+          lon: data.lon,
+          distance_m: Math.round(distance_m),
+        });
+        setEndError(null);
+      })
+      .catch(() => setEndError("Location error."))
+      .finally(() => setEndLocationLoading(false));
+  }, []);
 
   const loadEndRideNearest = useCallback(() => {
     if (!user || !activeRide) return;
@@ -395,44 +427,34 @@ function App() {
           () => resolve({ lat: DEFAULT_LAT, lon: DEFAULT_LON })
         );
       });
-    resolveLocation()
-      .then((latLon) =>
-        fetch(
-          apiUrl(`/stations/nearest?lat=${latLon.lat}&lon=${latLon.lon}`)
-        ).then((r) => r.json().then((data: { station_id: number; name: string; lat: number; lon: number }) => ({ ok: r.ok, data, latLon })))
-      )
-      .then(({ ok, data, latLon }) => {
-        if (!ok) {
-          setEndError("Could not find nearest station.");
-          setEndLocationLoading(false);
-          return;
-        }
-        const distance_m = haversineDistanceMetres(
-          latLon.lat,
-          latLon.lon,
-          data.lat,
-          data.lon
-        );
-        setEndUserPosition({ lat: latLon.lat, lon: latLon.lon });
-        setEndNearestStation({
-          station_id: data.station_id,
-          name: data.name,
-          lat: data.lat,
-          lon: data.lon,
-          distance_m: Math.round(distance_m),
-        });
-        setEndError(null);
-      })
-      .catch(() => {
-        setEndError("Location error.");
-      })
-      .finally(() => setEndLocationLoading(false));
-  }, [user, activeRide]);
+    resolveLocation().then((latLon) => applyEndLocation(latLon.lat, latLon.lon));
+  }, [user, activeRide, applyEndLocation]);
+
+  const useManualEndCoordinates = () => {
+    const lat = parseFloat(endManualLat.trim());
+    const lon = parseFloat(endManualLon.trim());
+    if (Number.isNaN(lat) || Number.isNaN(lon)) {
+      setEndError("Enter valid latitude and longitude (numbers).");
+      return;
+    }
+    if (lat < -90 || lat > 90) {
+      setEndError("Latitude must be between -90 and 90.");
+      return;
+    }
+    if (lon < -180 || lon > 180) {
+      setEndError("Longitude must be between -180 and 180.");
+      return;
+    }
+    setEndError(null);
+    applyEndLocation(lat, lon);
+  };
 
   useEffect(() => {
     if (view === "endRide" && activeRide) {
       setEndNearestStation(null);
       setEndUserPosition(null);
+      setEndManualLat("");
+      setEndManualLon("");
       loadEndRideNearest();
     }
   }, [view, activeRide, loadEndRideNearest]);
@@ -472,6 +494,8 @@ function App() {
       setActiveRide(null);
       setEndNearestStation(null);
       setEndUserPosition(null);
+      setEndManualLat("");
+      setEndManualLon("");
       const fee = typeof data.payment_charged === "number" ? data.payment_charged : 0;
       addToast("success", `Ride ended. Payment of ${fee} ILS processed.`);
       setView("home");
@@ -565,30 +589,10 @@ function App() {
     }
   };
 
-  // Report degraded: during active ride (no input) or from last completed ride
+  // Report degraded: only during active ride
   const [reportError, setReportError] = useState<string | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
-  const [lastRideVehicleId, setLastRideVehicleId] = useState<string | null>(null);
-  const [lastRideLoading, setLastRideLoading] = useState(false);
-
-  useEffect(() => {
-    if (view !== "reportVehicle" || activeRide || !user) {
-      setLastRideVehicleId(null);
-      return;
-    }
-    setLastRideLoading(true);
-    setReportError(null);
-    fetch(apiUrl(`/ride/rides/history?user_id=${encodeURIComponent(user.user_id)}`))
-      .then((r) => r.json())
-      .then((data) => {
-        const first = data?.rides?.[0];
-        setLastRideVehicleId(first?.vehicle_id ?? null);
-      })
-      .catch(() => setLastRideVehicleId(null))
-      .finally(() => setLastRideLoading(false));
-  }, [view, user?.user_id, activeRide]);
-
-  const reportVehicleId = activeRide?.vehicle_id ?? lastRideVehicleId ?? "";
+  const reportVehicleId = activeRide?.vehicle_id ?? "";
 
   const doReport = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -825,14 +829,16 @@ function App() {
                     Upgrade to Pro
                   </button>
                 )}
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setView("reportVehicle")}
-                  title={activeRide ? "Report current vehicle as degraded" : "Report a vehicle as degraded (start a ride first)"}
-                >
-                  Report degraded vehicle
-                </button>
+                {activeRide && (
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => setView("reportVehicle")}
+                    title="Report current vehicle as degraded"
+                  >
+                    Report degraded vehicle
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn btn-secondary"
@@ -1004,10 +1010,10 @@ function App() {
             </div>
             <h2 className="section-title">End ride</h2>
             <p className="section-note">
-              Be within 5 m of a station to end the ride.
+              Be within 5 m of a station to end the ride. Use your location or enter coordinates.
             </p>
             {endLocationLoading && (
-              <p className="section-note">Getting your location…</p>
+              <p className="section-note">Getting location…</p>
             )}
             {endNearestStation && (
               <div className="result-block">
@@ -1027,27 +1033,66 @@ function App() {
             )}
             <form onSubmit={doEndRide} className="form">
               {endError && <p className="result-error">{endError}</p>}
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={loadEndRideNearest}
-                disabled={endLoading || endLocationLoading}
-              >
-                Refresh location
-              </button>
-              <button
-                type="submit"
-                className="btn"
-                disabled={
-                  endLoading ||
-                  !endAtStation ||
-                  endLocationLoading ||
-                  !endNearestStation ||
-                  !endUserPosition
-                }
-              >
-                {endLoading ? "Ending…" : "End ride"}
-              </button>
+              <div className="form-row">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={loadEndRideNearest}
+                  disabled={endLoading || endLocationLoading}
+                >
+                  Use my location
+                </button>
+              </div>
+              <p className="section-note" style={{ marginTop: "0.5rem" }}>Or enter latitude and longitude:</p>
+              <div className="form-row" style={{ flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                  <span>Lat</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="e.g. 32.0853"
+                    value={endManualLat}
+                    onChange={(e) => setEndManualLat(e.target.value)}
+                    disabled={endLoading || endLocationLoading}
+                    style={{ width: "8rem" }}
+                  />
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                  <span>Lon</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="e.g. 34.7818"
+                    value={endManualLon}
+                    onChange={(e) => setEndManualLon(e.target.value)}
+                    disabled={endLoading || endLocationLoading}
+                    style={{ width: "8rem" }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={useManualEndCoordinates}
+                  disabled={endLoading || endLocationLoading}
+                >
+                  Use these coordinates
+                </button>
+              </div>
+              <div className="form-row">
+                <button
+                  type="submit"
+                  className="btn"
+                  disabled={
+                    endLoading ||
+                    !endAtStation ||
+                    endLocationLoading ||
+                    !endNearestStation ||
+                    !endUserPosition
+                  }
+                >
+                  {endLoading ? "Ending…" : "End ride"}
+                </button>
+              </div>
             </form>
           </div>
         )}
@@ -1208,27 +1253,10 @@ function App() {
                   </button>
                 </form>
               </>
-            ) : lastRideLoading ? (
-              <p className="section-note">Loading…</p>
-            ) : lastRideVehicleId ? (
-              <>
-                <p className="section-note">
-                  Report the vehicle from your last ride (<strong>Vehicle {lastRideVehicleId}</strong>) as degraded.
-                </p>
-                <form onSubmit={doReport} className="form">
-                  {reportError && <p className="result-error">{reportError}</p>}
-                  <button type="submit" className="btn" disabled={reportLoading}>
-                    {reportLoading ? "Reporting…" : "Report degraded vehicle"}
-                  </button>
-                </form>
-              </>
             ) : (
-              <>
-                <p className="section-note">
-                  You can report a vehicle as degraded only during an active ride (it will end the ride at no charge) or the vehicle from your last completed ride.
-                </p>
-                <p className="result-error">No ride to report. Start a ride or complete one, then return here.</p>
-              </>
+              <p className="section-note">
+                You can report a vehicle as degraded only during an active ride. It will end the ride at no charge. Start a ride to see the option.
+              </p>
             )}
           </div>
         )}

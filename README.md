@@ -27,11 +27,11 @@ The system handles the full ride lifecycle including payments, vehicle maintenan
 - **1,000 stations / 18,754 vehicles** — loaded from CSV on cold start; linked to stations with capacity enforcement.
 - **Pro users** — license-validated users who can rent all vehicle types (including electric); regular users are limited to non-electric bikes.
 - **Payment processing** — mocked async payment service supporting charges, receipts, and refunds tied to a user's stored payment token.
-- **Vehicle degradation** — mid-ride reporting of degraded vehicles; ride ends fee-free, vehicle moves to a degraded pool.
-- **Maintenance pipeline** — batch treatment of eligible vehicles (10+ rides or degraded), with type-specific treatments (chain lubrication, battery inspection, firmware update, etc.).
+- **Vehicle degradation** — report a vehicle as degraded only during an active ride; ride ends fee-free, vehicle moves to a degraded pool.
+- **Maintenance pipeline** — batch treatment of eligible vehicles (7+ rides since last treatment or degraded), with type-specific treatments (chain lubrication, battery inspection, firmware update, etc.).
 - **Concurrency safety** — async locks per station and per user to prevent double-booking, station overflow, and duplicate ride starts.
 - **State persistence** — full application state serialized to JSON on shutdown and restored on startup (atomic writes via temp file + rename).
-- **Web UI** — React frontend for registration, starting/ending rides, and viewing stations and vehicles.
+- **Web UI** — React frontend for registration, starting/ending rides (with “use my location” or enter latitude/longitude), and viewing stations and vehicles. Report degraded is available only during an active ride.
 
 ## Tech Stack
 
@@ -246,20 +246,22 @@ Run the backend first, then the frontend. Use the frontend URL in the browser.
 | GET    | `/rides/active-users`      | List all users with an active ride                       |
 | POST   | `/ride/start`              | Start a ride from user location: body `{ user_id, lon, lat }`; finds nearest station with eligible vehicle, assigns vehicle, returns `ride_id`, `vehicle_id`, `vehicle_type`, `start_station_id`. |
 | POST   | `/ride/start-by-station`   | Start a ride from a specific station (body `{ user_id, station_id }`). Kept for backward compatibility. |
-| POST   | `/ride/end`                | End a ride — body `{ ride_id, lon, lat }`; docks at nearest station with free slot, processes payment            |
-| POST   | `/vehicle/treat`           | Batch-treat eligible and degraded vehicles               |
-| POST   | `/vehicle/report-degraded` | Report a vehicle as degraded during an active ride       |
+| POST   | `/ride/end`                | End a ride — body `{ ride_id, lon, lat }` (lat/lon from device or user-entered); must be within 5 m of a station; docks at nearest with free slot, processes payment |
+| POST   | `/vehicle/treat`           | Batch-treat eligible and degraded vehicles; returns list of treated vehicle IDs |
+| POST   | `/vehicle/report-degraded` | Report current vehicle as degraded during an active ride only (ends ride at no charge) |
 | GET    | `/stations/nearest`        | Find the nearest station to given coordinates            |
 
 All request/response bodies are validated with Pydantic (`extra="forbid"` rejects unknown fields).
 
 ## Vehicle Selection Logic
 
-When a ride starts, the system finds the nearest station (by Euclidean distance) that has an eligible vehicle. A vehicle is eligible if:
+When a ride starts, the system finds the nearest station (by Euclidean distance) that has an eligible vehicle. A vehicle is eligible to rent if:
 
 - `status == AVAILABLE`
-- `rides_since_last_treated <= 10`
+- `rides_since_last_treated <= 10` (so 10 rides is still rentable; it becomes unrentable after the 11th)
 - The user is allowed to rent it (regular users: non-electric only; Pro users: all types)
+
+Treatment can be initiated on vehicles with **7 or more** rides since last treatment (`rides_since_last_treated >= 7`). Unrentable vehicles (`> 10` rides) stay docked until treated.
 
 When multiple eligible vehicles exist at a station, a **deterministic selection rule** applies:
 

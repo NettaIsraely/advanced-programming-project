@@ -10,7 +10,6 @@ from fastapi.testclient import TestClient
 from tlvflow.api.app import app
 from tlvflow.domain.enums import VehicleStatus
 from tlvflow.domain.rides import Ride
-from tlvflow.domain.stations import Station
 from tlvflow.domain.vehicles import Bike
 from tlvflow.persistence.active_users_repository import ActiveUsersRepository
 from tlvflow.persistence.degraded_vehicles_repository import DegradedVehiclesRepository
@@ -122,16 +121,6 @@ def test_report_degraded_active_repo_missing_raises() -> None:
     assert resp.status_code == 500
 
 
-def test_report_degraded_station_repo_missing_raises() -> None:
-    with TestClient(app, raise_server_exceptions=False) as client:
-        _setup_full_state(client)
-        client.app.state.station_repository = None
-        resp = client.post(
-            "/vehicle/report-degraded", json={"user_id": "u1", "vehicle_id": "v1"}
-        )
-    assert resp.status_code == 500
-
-
 def test_report_degraded_locks_missing_raises() -> None:
     with TestClient(app, raise_server_exceptions=False) as client:
         _setup_full_state(client)
@@ -180,29 +169,3 @@ def test_report_degraded_no_active_ride_409() -> None:
             "/vehicle/report-degraded", json={"user_id": "u1", "vehicle_id": "v1"}
         )
     assert resp.status_code == 409
-
-
-def test_report_degraded_from_last_completed_ride_success() -> None:
-    with TestClient(app) as client:
-        _setup_full_state(client)
-        bike = Bike(vehicle_id="v_done", frame_number="FD")
-        client.app.state.vehicle_repository.add(bike)
-        station = Station(
-            station_id=1,
-            name="S1",
-            latitude=32.0,
-            longitude=34.0,
-            capacity=10,
-            vehicles=[bike],
-        )
-        client.app.state.station_repository.add(station)
-
-        ride = Ride(user_id="u1", vehicle_id="v_done", start_time=datetime.now(UTC))
-        ride.end()
-        client.app.state.rides_repository.add(ride)
-
-        resp = client.post(
-            "/vehicle/report-degraded", json={"user_id": "u1", "vehicle_id": "v_done"}
-        )
-    assert resp.status_code == 200
-    assert resp.json()["result"] == "ok"
