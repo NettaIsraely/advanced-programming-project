@@ -98,8 +98,7 @@ advanced-programming-project/
 │       │   ├── payment.py
 │       │   ├── payment_service.py
 │       │   ├── reports.py
-│       │   ├── maintenance_event.py
-│       │   └── exceptions.py
+│       │   └── maintenance_event.py
 │       ├── services/
 │       │   ├── rides_service.py
 │       │   ├── users_service.py
@@ -238,18 +237,24 @@ Run the backend first, then the frontend. Use the frontend URL in the browser.
 
 ## API Endpoints
 
-| Method | Path                       | Description                                              |
-|--------|----------------------------|----------------------------------------------------------|
-| GET    | `/health`                  | Health check — returns `{ "status": "ok" }`              |
-| POST   | `/register`                | Register a new user (name, email, password, payment token) |
-| POST   | `/user/upgrade`            | Upgrade a user to Pro with license details               |
-| GET    | `/rides/active-users`      | List all users with an active ride                       |
-| POST   | `/ride/start`              | Start a ride from user location: body `{ user_id, lon, lat }`; finds nearest station with eligible vehicle, assigns vehicle, returns `ride_id`, `vehicle_id`, `vehicle_type`, `start_station_id`. |
-| POST   | `/ride/start-by-station`   | Start a ride from a specific station (body `{ user_id, station_id }`).|
-| POST   | `/ride/end`                | End a ride — body `{ ride_id, lon, lat }` (lat/lon from device or user-entered); must be within 5 m of a station; docks at nearest with free slot, processes payment |
-| POST   | `/vehicle/treat`           | Batch-treat eligible and degraded vehicles; returns list of treated vehicle IDs |
-| POST   | `/vehicle/report-degraded` | Report current vehicle as degraded during an active ride only (ends ride at no charge) |
-| GET    | `/stations/nearest`        | Find the nearest station to given coordinates            |
+| Method | Path                                 | Description                                              |
+|--------|--------------------------------------|----------------------------------------------------------|
+| GET    | `/health`                            | Health check — returns `{ "status": "ok" }`              |
+| POST   | `/register`                          | Register a new user (name, email, password, payment token) |
+| POST   | `/login`                             | Authenticate by email and password; returns `user_id`, `name`, `is_pro` |
+| GET    | `/users/me`                          | Return the profile for a given `user_id` (query param)   |
+| PATCH  | `/users/{user_id}/payment-method`    | Update a user's stored payment method token              |
+| POST   | `/user/upgrade`                      | Upgrade a user to Pro with license details               |
+| GET    | `/rides/active-users`                | List all users with an active ride                       |
+| POST   | `/ride/start`                        | Start a ride from user location: body `{ user_id, lon, lat }`; finds nearest station with eligible vehicle, assigns vehicle, returns `ride_id`, `vehicle_id`, `vehicle_type`, `start_station_id` |
+| POST   | `/ride/start-by-station`             | Start a ride from a specific station (body `{ user_id, station_id }`) |
+| POST   | `/ride/start-by-vehicle`             | Start a ride by vehicle ID (body `{ user_id, vehicle_id }`); vehicle must be at a station; enforces user-type permissions via `can_rent()` |
+| GET    | `/ride/rides/active`                 | Return the active ride for a given `user_id` (query param), or 404 if none |
+| GET    | `/ride/rides/history`                | Return completed ride history for a given `user_id` (most recent first) |
+| POST   | `/ride/end`                          | End a ride — body `{ ride_id, lon, lat }`; must be within 5 m of a station; docks at nearest with free slot, processes payment |
+| POST   | `/vehicle/treat`                     | Batch-treat eligible and degraded vehicles; returns list of treated vehicle IDs |
+| POST   | `/vehicle/report-degraded`           | Report current vehicle as degraded during an active ride only (ends ride at no charge) |
+| GET    | `/stations/nearest`                  | Find the nearest station to given coordinates            |
 
 All request/response bodies are validated with Pydantic (`extra="forbid"` rejects unknown fields).
 
@@ -259,7 +264,8 @@ When a ride starts, the system finds the nearest station (by Euclidean distance)
 
 - `status == AVAILABLE`
 - `rides_since_last_treated <= 10` (so 10 rides is still rentable; it becomes unrentable after the 11th)
-- The user is allowed to rent it (regular users: non-electric only; Pro users: all types)
+
+User-type permissions (`can_rent()`) are enforced only in the `/ride/start-by-vehicle` flow — regular users are blocked from renting electric vehicles there. The `/ride/start` and `/ride/start-by-station` flows select vehicles by station eligibility without a per-user type check.
 
 Treatment can be initiated on vehicles with **7 or more** rides since last treatment (`rides_since_last_treated >= 7`). Unrentable vehicles (`> 10` rides) stay docked until treated.
 
