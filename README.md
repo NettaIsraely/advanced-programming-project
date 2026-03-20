@@ -84,7 +84,6 @@ advanced-programming-project/
 │       │   ├── routes.py        # Top-level router aggregation
 │       │   ├── schemas.py       # Pydantic request/response models
 │       │   └── routers/
-│       │       ├── health_router.py
 │       │       ├── users_router.py
 │       │       ├── vehicles_router.py
 │       │       ├── rides_router.py
@@ -239,7 +238,6 @@ Run the backend first, then the frontend. Use the frontend URL in the browser.
 
 | Method | Path                                 | Description                                              |
 |--------|--------------------------------------|----------------------------------------------------------|
-| GET    | `/health`                            | Health check — returns `{ "status": "ok" }`              |
 | POST   | `/register`                          | Register a new user (name, email, password, payment token) |
 | POST   | `/login`                             | Authenticate by email and password; returns `user_id`, `name`, `is_pro` |
 | GET    | `/users/me`                          | Return the profile for a given `user_id` (query param)   |
@@ -288,7 +286,7 @@ pytest tests/integration/
 The test suite includes **27 test files** organized into:
 
 - **Unit tests** — domain entities, services, repositories, and loaders tested in isolation.
-- **Integration tests** — full API tests using FastAPI's `TestClient` via httpx, covering health, users, vehicles, stations, and rides endpoints.
+- **Integration tests** — full API tests using FastAPI's `TestClient` via httpx, covering users, vehicles, stations, and rides endpoints.
 
 ## Data Files
 

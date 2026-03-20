@@ -18,12 +18,6 @@ class ErrorResponse(BaseModel):
     detail: str
 
 
-# Health
-class HealthResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    status: Literal["ok"]
-
-
 # Stations : matches stations_service.station_to_dict(...)
 class StationNearestResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
